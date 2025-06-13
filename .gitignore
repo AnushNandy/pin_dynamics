@@ -1,0 +1,147 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+#  Usually contains the entire application
+*.manifest
+*.spec
+
+# Virtual environments
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# PyCharm
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code
+.vscode/
+
+# Test & coverage artifacts
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+pytestdebug.log
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# pytype
+.pytype/
+
+# pyright
+pyrightconfig.json
+
+# Pylint
+pylint-report.txt
+pylint.log
+
+# CMake / build tools
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# System files
+*.DS_Store
+*.Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+
+# Logs and dumps
+*.log
+*.out
+*.err
+*.bak
+*.tmp
+
+# Binary data & results (tweak based on what should be reproducible)
+*.npz
+*.npy
+*.mat
+*.pkl
+*.onnx
+*.pt
+*.ckpt
+
+# Configs
+config/*.yaml
+config/*.yml
+config/*.json
+
+# User data or experiment results
+results/
+experiments/
+runs/
+output/
+__results__/
+
+# Local data files
+*.db
+*.sqlite
+*.h5
+*.csv
+*.tsv
+
+# IDE-specific
+*.code-workspace
+
+# Ignore sysid results
+src/systemid/*.npz
+src/systemid/identified_params.npz
+src/systemid/sysid_data.npz
+
+# Optional: ignore documentation artifacts
+docs/_build/
+*.pdf
+
+# Ignore backups
+*~

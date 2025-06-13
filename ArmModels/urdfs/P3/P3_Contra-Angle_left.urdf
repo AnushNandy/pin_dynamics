@@ -1,0 +1,309 @@
+<robot name="P3.SLDASM">
+  <link
+    name="Base">
+    <inertial>
+      <origin
+        xyz="-0.0082097 0.0025216 -0.14078"
+        rpy="0 0 0" />
+      <mass
+        value="11.969" />
+      <inertia
+        ixx="0.025218"
+        ixy="-0.0010866"
+        ixz="0.0012177"
+        iyy="0.030018"
+        iyz="0.00020314"
+        izz="0.048411" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="meshes/P3/Base.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="meshes/P3/Base_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link name="Link_0">
+    <inertial>
+      <origin xyz="0.18505 5.3515E-06 -0.01701" rpy="0 0 0" />
+      <mass value="11.8138142072387" />
+      <inertia ixx="0.021960885414009597" ixy="-1.0177974636832193e-05" ixz="-0.002734176737885446" iyy="0.17360326833026943" iyz="-2.6700955518747677e-08" izz="0.18454274336760004" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_0.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_0_a_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_0_b_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_0_c_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_0" type="continuous">
+    <origin xyz="0 0 0" rpy="0 0 0" />
+    <parent link="Base" />
+    <child link="Link_0" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="Link_1">
+    <inertial>
+      <origin xyz="0.026646 1.73E-06 0.012811" rpy="0 0 0" />
+      <mass value="4.20821788232458" />
+      <inertia ixx="0.005315440445309862" ixy="-1.8902697471299544e-07" ixz="0.000277695501756482" iyy="0.009688979909031208" iyz="-2.678860294278834e-07" izz="0.01161913432387085" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_1.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_1_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_1" type="continuous">
+    <origin xyz="0.375 0 0.098637" rpy="0 0 0" />
+    <parent link="Link_0" />
+    <child link="Link_1" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="Link_2">
+    <inertial>
+      <origin xyz="2.8268E-05 -0.036477 0.048162" rpy="0 0 0" />
+      <mass value="2.22462215939643" />
+      <inertia ixx="0.005867792450482939" ixy="-2.971114570629072e-07" ixz="7.257947945771217e-07" iyy="0.00550291501604289" iyz="0.0015903827815698026" izz="0.0036088559483517693" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_2.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0.367174 0 0" xyz="0 -0.0225 0.0385"/>
+      <geometry>
+        <capsule radius="0.066" length="0.125356"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="-0.367174 0 0" xyz="0 0.0225 0.0385"/>
+      <geometry>
+        <capsule radius="0.066" length="0.125356"/>
+      </geometry>
+    </collision>
+    <collision>
+      <origin rpy="1.570796 0 0" xyz="0 0 0.097"/>
+      <geometry>
+        <capsule radius="0.066" length="0.09"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_2" type="continuous">
+    <origin xyz="0.178 0 0.003" rpy="0 1.5708 0" />
+    <parent link="Link_1" />
+    <child link="Link_2" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="Link_3">
+    <inertial>
+      <origin xyz="-0.11355 -0.061021 0.05771" rpy="0 0 0" />
+      <mass value="6.98383900274924" />
+      <inertia ixx="0.019745459569113416" ixy="-0.026101267173505856" ixz="-0.0030439114759827704" iyy="0.07417070625290391" iyz="-0.0013183804713827174" izz="0.0896639966792191" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_3.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_3_a_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_3_b_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_3" type="continuous">
+    <origin xyz="0 -0.045 0.097" rpy="-1.5708 0 0" />
+    <parent link="Link_2" />
+    <child link="Link_3" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="Link_4">
+    <inertial>
+      <origin xyz="-4.2165E-06 -0.033983 0.048871" rpy="0 0 0" />
+      <mass value="1.21952641664514" />
+      <inertia ixx="0.002519853724818692" ixy="-9.606129099925486e-08" ixz="1.762933437330897e-07" iyy="0.002257749247330957" iyz="0.000819778557713871" izz="0.0014740568596426295" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_4.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_4_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_4" type="continuous">
+    <origin xyz="-0.25712 -0.21142 0.045" rpy="1.5708 0 0" />
+    <parent link="Link_3" />
+    <child link="Link_4" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="Link_5">
+    <inertial>
+      <origin xyz="-1.2506E-07 0.037633 0.054984" rpy="0 0 0" />
+      <mass value="2.97160492714599" />
+      <inertia ixx="0.00313832522168929" ixy="3.4526012786159784e-08" ixz="-9.436518781873329e-09" iyy="0.0022816695181310585" iyz="-7.546849506790613e-05" izz="0.004023282666933124" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_5.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/Link_5_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_5" type="continuous">
+    <origin xyz="0 -0.047 0.095" rpy="-1.5708 -1.5708 0" />
+    <parent link="Link_4" />
+    <child link="Link_5" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  <link name="End_Effector">
+    <inertial>
+      <origin xyz="0.0048051 -0.0037815 0.055591" rpy="0 0 0" />
+      <mass value="1.12558655525532" />
+      <inertia ixx="0.0004176460261020895" ixy="4.13308507858011e-05" ixz="-2.9418374407157626e-05" iyy="0.00037525928615660386" iyz="3.7034033115058464e-05" izz="0.0006573956605207664" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/End_Effector_Contra-Angle.STL" />
+      </geometry>
+      <material name="">
+        <color rgba="0.79216 0.81961 0.93333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/End_Effector_Contra-Angle_a_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/End_Effector_Contra-Angle_b_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/End_Effector_Contra-Angle_c_collision.STL" />
+      </geometry>
+    </collision>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <mesh filename="meshes/P3/End_Effector_Contra-Angle_d_collision.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint name="Joint_6" type="continuous">
+    <origin xyz="0 0.13375 0.047" rpy="-1.5707 1.5707 0" />
+    <parent link="Link_5" />
+    <child link="End_Effector" />
+    <axis xyz="0 0 1" />
+    <limit lower="0" upper="0" effort="0" velocity="0" />
+  </joint>
+  
+	<link name="Weight">
+		<inertial>
+			<origin xyz="-0.00663058 0.01836489 0.08445825" rpy="0.0 -1.3788 -1.2243" />
+			<mass value="10.0" />
+			<inertia ixx="4.16667e-2" ixy="0.0" ixz="0.0" iyy="1.66667e-1" iyz="0" izz="1.66667e-1" />
+		</inertial>
+	</link>
+	<joint name="Sensor Flange" type="fixed">
+		<origin xyz="0.0 0.0 0.0887" rpy="0.0 0.0 2.7925" />
+		<parent link="End_Effector" />
+		<child link="Weight" />
+		<axis xyz="0 0 0" />
+	</joint>
+				
+  
+</robot>
