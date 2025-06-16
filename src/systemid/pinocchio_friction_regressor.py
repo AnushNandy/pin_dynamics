@@ -4,6 +4,8 @@ import os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from config import robot_config
 
+def smooth_sign(v, threshold=0.01):
+    return np.tanh(v / threshold)
 
 class PinocchioAndFrictionRegressorBuilder:
     """
@@ -17,8 +19,15 @@ class PinocchioAndFrictionRegressorBuilder:
         # We explicitly load the URDF as a free-flyer to have a consistent
         # starting point, matching the control-side model.
         self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
+        # self.model = pin.buildModelFromUrdf(urdf_path)
         self.data = self.model.createData()
         self.num_joints = robot_config.NUM_JOINTS # Should be 7
+
+        print("\n--- REGRESSOR BUILDER MODEL INSPECTION ---")
+        print(f"Model nq: {self.model.nq}") 
+        print(f"Model nv: {self.model.nv}") 
+        print(f"Number of bodies in model: {self.model.nbodies}")
+        print("------------------------------------------\n")
 
         # Store model dimensions for convenience
         self.nq = self.model.nq
@@ -46,7 +55,6 @@ class PinocchioAndFrictionRegressorBuilder:
         qdd_full = np.zeros(self.nv)     # Creates an a vector of size model.nv
 
         # Place the actuated joint values into the correct slice.
-        # The floating base has nq=7 and nv=6. The actuated joints come after.
         q_full[7 : 7 + self.num_joints] = q
         qd_full[6 : 6 + self.num_joints] = qd
         qdd_full[6 : 6 + self.num_joints] = qdd
@@ -69,6 +77,7 @@ class PinocchioAndFrictionRegressorBuilder:
 
         # --- 3. Append Friction Parameter Columns ---
         Y_friction = np.zeros((self.num_joints, self.total_friction_params))
+
         for i in range(self.num_joints):
             # Viscous friction column: Fv * qd
             viscous_col_idx = i * self.num_friction_params
@@ -76,7 +85,8 @@ class PinocchioAndFrictionRegressorBuilder:
 
             # Coulomb friction column: Fc * sign(qd)
             coulomb_col_idx = i * self.num_friction_params + 1
-            Y_friction[i, coulomb_col_idx] = np.sign(qd[i])
+            # Y_friction[i, coulomb_col_idx] = np.sign(qd[i])
+            Y_friction[i, coulomb_col_idx] = smooth_sign(qd[i])
             
         # Combine the two parts horizontally
         Y_full = np.hstack([Y_rnea, Y_friction])

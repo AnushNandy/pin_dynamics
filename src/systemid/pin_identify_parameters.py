@@ -4,9 +4,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from config import robot_config
 from pinocchio_friction_regressor import PinocchioAndFrictionRegressorBuilder
 
-DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data.npz"
+# DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data.npz"
+DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz"
 SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_params.npz"
-L2_REGULARIZATION = 1e-6
+L2_REGULARIZATION = 1e-3
 
 def main():
     """
@@ -24,7 +25,6 @@ def main():
     print(f"Loaded {num_samples} samples from '{DATA_PATH}'")
 
     # 2. Initialize the Pinocchio regressor builder
-    # Assuming robot_config has URDF_PATH attribute
     urdf_path = robot_config.URDF_PATH
     regressor_builder = PinocchioAndFrictionRegressorBuilder(urdf_path)
     

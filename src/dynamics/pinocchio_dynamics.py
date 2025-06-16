@@ -51,10 +51,9 @@ class PinocchioRobotDynamics:
 
             I_com_identified = np.array([
                 [ixx, ixy, ixz],
-                [ixy, iyy, izz], 
+                [ixy, iyy, iyz], 
                 [ixz, iyz, izz]
             ])
-            I_com_identified[1, 2] = I_com_identified[2, 1] = iyz
 
             I_com_physically_valid = self._get_nearest_spd_matrix(I_com_identified)
             
@@ -94,7 +93,7 @@ class PinocchioRobotDynamics:
         q_full[7 : 7 + self.num_actuated_joints] = q
         qd_full[6 : 6 + self.num_actuated_joints] = qd
         qdd_full[6 : 6 + self.num_actuated_joints] = qdd
-        
+
         # 3. Set gravity and run the algorithm.
         self.model.gravity.linear = gravity 
         
@@ -114,6 +113,7 @@ class PinocchioRobotDynamics:
         """
         q_full = pin.neutral(self.model)
         q_full[7 : 7 + self.num_actuated_joints] = q
+        # q_full = q
         
         ee_frame_id = self.model.getFrameId(robot_config.END_EFFECTOR_FRAME_NAME)
         pin.computeJointJacobians(self.model, self.data, q_full)
@@ -123,29 +123,75 @@ class PinocchioRobotDynamics:
         
         return actuated_J
     
-    def compute_task_space_inertia(self, J: np.ndarray) -> np.ndarray:
+    def compute_task_space_inertia(self, q: np.ndarray, J: np.ndarray) -> np.ndarray:
         """
         Computes the operational space (task space) inertia matrix, Lambda.
-        This matrix relates end-effector forces to end-effector accelerations.
-        F_ee = Lambda(q) * x_ddot
-        
-        Lambda(q) = (J * M(q)^-1 * J^T)^-1
-
-        :param J: The end-effector Jacobian (6xN).
-        :return: The 6x6 task-space inertia matrix.
         """
-        # M is the joint-space mass matrix
-        M = self.data.M
+        # Get the actuated joint mass matrix
+        M_actuated = self.compute_mass_matrix(q)
         
-        # A numerically stable way to compute J * M^-1 * J^T
-        # Solve M * x = J^T for x, which is equivalent to x = M^-1 * J^T
-        M_inv_J_T = np.linalg.solve(M, J.T)
+        # Solve M * x = J^T for x 
+        try:
+            M_inv_J_T = np.linalg.solve(M_actuated, J.T)
+        except np.linalg.LinAlgError:
+            # Fallback to pseudo-inverse if singular
+            M_inv_J_T = np.linalg.pinv(M_actuated) @ J.T
         
-        # Now, J * x = J * M^-1 * J^T
+        # Compute J * M^-1 * J^T
         J_M_inv_J_T = J @ M_inv_J_T
         
-        # The task space inertia is the inverse of this matrix
-        # We use a pseudo-inverse for robustness against singularities
-        Lambda = np.linalg.pinv(J_M_inv_J_T)
+        try:
+            Lambda = np.linalg.inv(J_M_inv_J_T)
+        except np.linalg.LinAlgError:
+            Lambda = np.linalg.pinv(J_M_inv_J_T)
         
         return Lambda
+    
+    def compute_gravity_vector(self, q: np.ndarray) -> np.ndarray:
+        """
+        Computes the gravity compensation torque vector g(q).
+        """
+        q_full = pin.neutral(self.model)
+        q_full[7 : 7 + self.num_actuated_joints] = q        
+        g_full = pin.computeGeneralizedGravity(self.model, self.data, q_full)
+        return g_full[6 : 6 + self.num_actuated_joints]
+
+    def compute_coriolis_matrix(self, q: np.ndarray, qd: np.ndarray) -> np.ndarray:
+        """
+        Computes the Coriolis and centrifugal matrix C(q, qd).
+        The torque vector is then C @ qd.
+        """
+        q_full = pin.neutral(self.model)
+        qd_full = np.zeros(self.nv)
+        q_full[7 : 7 + self.num_actuated_joints] = q
+        qd_full[6 : 6 + self.num_actuated_joints] = qd
+
+        pin.computeCoriolisMatrix(self.model, self.data, q_full, qd_full)
+        
+        C_full = self.data.C
+        
+        actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        return C_full[actuated_slice, actuated_slice]
+    
+    def compute_mass_matrix(self, q: np.ndarray) -> np.ndarray:
+        """Computes the joint space mass matrix M(q)."""
+        q_full = pin.neutral(self.model)
+        q_full[7 : 7 + self.num_actuated_joints] = q
+        
+        # This function computes M and stores it in data.M
+        pin.crba(self.model, self.data, q_full)
+        M_full = self.data.M
+        
+        actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        return M_full[actuated_slice, actuated_slice]
+
+    def compute_nonlinear_effects(self, q: np.ndarray, qd: np.ndarray) -> np.ndarray:
+        """Computes the nonlinear effects vector n(q, qd) = C(q,qd)qd + g(q)."""
+        q_full = pin.neutral(self.model)
+        qd_full = np.zeros(self.nv)
+        q_full[7 : 7 + self.num_actuated_joints] = q
+        qd_full[6 : 6 + self.num_actuated_joints] = qd
+        
+        n_full = pin.nonLinearEffects(self.model, self.data, q_full, qd_full)
+        
+        return n_full[6 : 6 + self.num_actuated_joints]

@@ -2,12 +2,13 @@ import pybullet as p
 import numpy as np
 import time
 import pybullet_data
-import os
-from Dynamics_full.config import robot_config
+import time, os, sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
+from config import robot_config
 
-URDF_PATH = r"C:\dev\control-sw-tools\Dynamics_full\ArmModels\urdfs\P4\P4_Contra-Angle_right.urdf"
-SAVE_PATH = "sysid_data.npz"
-SIM_DURATION = 20.0  # Longer duration for more data
+URDF_PATH = r"/home/robot/dev/dyn/ArmModels/urdfs/P4/P4_Contra-Angle_right.urdf"
+SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data.npz"
+SIM_DURATION = 50.0  # Longer duration for more data
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
 
@@ -22,7 +23,8 @@ def generate_fourier_series_trajectory(t, num_harmonics=5):
     qdd_des = np.zeros(NUM_JOINTS)
 
     # Base frequency
-    w = 2 * np.pi * 0.1
+    # w = 2 * np.pi * 0.1
+    w = 2 * np.pi * 0.5
 
     for i in range(NUM_JOINTS):
         a_n = [(0.5 / (n + 1)) for n in range(num_harmonics)]
@@ -53,11 +55,17 @@ def main():
     physicsClientId = p.connect(p.DIRECT)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
+    friction_coeffs = {
+        'viscous': [0.1, 0.15, 0.08, 0.12, 0.09, 0.11, 0.06],
+        'coulomb': [0.05, 0.08, 0.04, 0.06, 0.05, 0.07, 0.03]
+    }
+
     if not os.path.exists(URDF_PATH):
         print(f"CRITICAL ERROR: URDF file not found at '{URDF_PATH}'")
         return
 
     robot_id = p.loadURDF(URDF_PATH, [0, 0, 0], useFixedBase=True)
+    # robot_id = p.loadURDF(URDF_PATH, [0, 0, 0], useFixedBas)
 
     log_q, log_qd, log_qdd, log_tau = [], [], [], []
 
@@ -73,10 +81,17 @@ def main():
             objAccelerations=qdd_des.tolist()
         )
 
+        tau_friction = np.zeros(NUM_JOINTS)
+        for i in range(NUM_JOINTS):
+            tau_friction[i] = (friction_coeffs['viscous'][i] * qd_des[i] + 
+                             friction_coeffs['coulomb'][i] * np.sign(qd_des[i]))
+            
+        tau_total = np.array(tau_ground_truth) + tau_friction
+
         log_q.append(q_des)
         log_qd.append(qd_des)
         log_qdd.append(qdd_des)
-        log_tau.append(tau_ground_truth)
+        log_tau.append(tau_total)
 
         # Progress indicator
         if int(t) % 5 == 0 and abs(t - int(t)) < TIME_STEP / 2:

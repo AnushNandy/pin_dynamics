@@ -13,7 +13,7 @@ URDF_PATH = r"/home/robot/dev/dyn/ArmModels/urdfs/P4/P4_Contra-Angle_right.urdf"
 IDENTIFIED_PARAMS_PATH = r"/home/robot/dev/dyn/src/systemid/identified_params.npz"
 
 # Options: "DISTURBANCE", "CONSTANT_VELOCITY", "HIGH_FREQUENCY"
-TEST_TO_RUN = "HIGH_FREQUENCY" 
+TEST_TO_RUN = "CONSTANT_VELOCITY" 
 
 TIME_STEP = 1. / 240.
 GRAVITY_VECTOR = np.array([0, 0, -9.81])
@@ -24,8 +24,6 @@ KD = np.array([4.0,  5.0,  4.0,  3.0,  2.0,  1.5,  1.0])
 
 _pybullet_connected = False
 
-# --- Helper Functions ---
-
 def setup_simulation(reconnect=False):
     """Connects to PyBullet, loads robot, and returns IDs."""
     global _pybullet_connected
@@ -34,7 +32,6 @@ def setup_simulation(reconnect=False):
         p.connect(p.GUI)
         _pybullet_connected = True
     elif reconnect:
-        # Reset the simulation instead of reconnecting
         p.resetSimulation()
     
     p.setTimeStep(TIME_STEP)
@@ -99,9 +96,6 @@ def generate_figure_eight_traj(t, robot_id, ee_link_index):
     target_pos = [x, y, z]
     q_des_t = np.array(p.calculateInverseKinematics(robot_id, ee_link_index, target_pos))
     
-    # For velocity, let's keep it simple for now, as precise qd/qdd is not the
-    # main goal of this test (comparing controllers is).
-    # In a real application, you would use the Jacobian.
     return q_des_t[:7], np.zeros(7), np.zeros(7)
 
 def run_test_loop(robot_id, joint_indices, duration, dyn_model, joint_models, traj_generator, control_mode, external_force=None):

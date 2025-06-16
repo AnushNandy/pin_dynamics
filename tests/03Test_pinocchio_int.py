@@ -1,5 +1,3 @@
-# file: 10_interactive_control.py
-
 import pybullet as p
 import pybullet_data
 import numpy as np
@@ -84,9 +82,9 @@ def run_interactive_simulation(robot_dyn_model: PinocchioRobotDynamics, joint_mo
     ee_link_index = joint_indices[-1]
     home_pos, _ = p.getLinkState(robot_id, ee_link_index)[:2]
     sliders = {
-        'x': p.addUserDebugParameter("Target X", -1, 1, home_pos[0]),
-        'y': p.addUserDebugParameter("Target Y", -1, 1, home_pos[1]),
-        'z': p.addUserDebugParameter("Target Z", 0, 1.5, home_pos[2]),
+        'x': p.addUserDebugParameter("Target X", -5, 5, home_pos[0]),
+        'y': p.addUserDebugParameter("Target Y", -5, 5, home_pos[1]),
+        'z': p.addUserDebugParameter("Target Z", -5, 5, home_pos[2]),
     }
     logs = {'t': [], 'q_des': [], 'q_act': [], 'tau_ff': [], 'tau_fb': [], 'tau_total': []}
 
