@@ -10,8 +10,8 @@ from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics
 
 # Constants
 URDF_PATH = robot_config.URDF_PATH
-SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz" # New save path
-SIM_DURATION = 50.0
+SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz"
+SIM_DURATION = 100.0
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
 

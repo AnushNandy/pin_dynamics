@@ -22,24 +22,15 @@ def get_ground_truth_params(model: pin.Model) -> np.ndarray:
     """
     p_rnea_true = []
     
-    # Bodies 2 through 8 are the actuated links for this robot model
     for i in range(2, NUM_JOINTS + 2):
         inertia = model.inertias[i]
         m = inertia.mass
         c = inertia.lever      # Center of mass in local frame
         I_com = inertia.inertia  # Inertia tensor about COM
-        # I_origin = I_com - m * (skew(c) @ skew(c))
-        # I_origin = I_com - m * (pin.skew(c) @ pin.skew(c))
         
         p_link = np.zeros(10)
         p_link[0] = m
         p_link[1:4] = m * c
-        # p_link[4] = I_origin[0, 0]  # Ixx
-        # p_link[5] = I_origin[0, 1]  # Ixy
-        # p_link[6] = I_origin[0, 2]  # Ixz
-        # p_link[7] = I_origin[1, 1]  # Iyy
-        # p_link[8] = I_origin[1, 2]  # Iyz
-        # p_link[9] = I_origin[2, 2]  # Izz
 
         p_link[4] = I_com[0, 0]  # Ixx_com
         p_link[5] = I_com[0, 1]  # Ixy_com
@@ -66,19 +57,15 @@ def get_ground_truth_params(model: pin.Model) -> np.ndarray:
 
 
 def main():
-    """
-    Runs a series of tests to verify the self-consistency of the system ID pipeline.
-    """
     print("--- Verifying System Identification Pipeline ---")
 
-    # --- 1. Initialization ---
     if not os.path.exists(IDENTIFIED_PARAMS_PATH):
         print(f"FATAL: Identified parameters file not found at '{IDENTIFIED_PARAMS_PATH}'")
         return
         
     regressor_builder = PinocchioAndFrictionRegressorBuilder(URDF_PATH)
-    dynamics_model_true = PinocchioRobotDynamics(URDF_PATH) # For ground truth
-    dynamics_model_identified = PinocchioRobotDynamics(URDF_PATH) # For validation
+    dynamics_model_true = PinocchioRobotDynamics(URDF_PATH)
+    dynamics_model_identified = PinocchioRobotDynamics(URDF_PATH) 
     
     P_identified = np.load(IDENTIFIED_PARAMS_PATH)['P']
     P_true = get_ground_truth_params(regressor_builder.model)
@@ -86,8 +73,6 @@ def main():
     if P_true.shape != P_identified.shape:
         print(f"ERROR: Parameter vector shapes don't match! P_true={P_true.shape}, P_id={P_identified.shape}")
         return
-
-    # --- 2. Generate a Single Test State ---
     np.random.seed(42)
     q_test = np.random.uniform(-np.pi, np.pi, size=NUM_JOINTS)
     qd_test = np.random.uniform(-2.0, 2.0, size=NUM_JOINTS)
@@ -100,7 +85,6 @@ def main():
 
     # --- 3. Compute Ground Truth Torque & Regressor ---
     tau_rnea_true = dynamics_model_true.compute_rnea(q_test, qd_test, qdd_test)
-    # Use smooth sign to match regressor exactly
     tau_friction_true = np.array([
         P_true[-NUM_JOINTS*2 + 2*i] * qd_test[i] + P_true[-NUM_JOINTS*2 + 2*i+1] * smooth_sign(qd_test[i])
         for i in range(NUM_JOINTS)
