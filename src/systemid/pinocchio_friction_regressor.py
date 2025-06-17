@@ -16,12 +16,9 @@ class PinocchioAndFrictionRegressorBuilder:
     by correctly constructing the full state vectors.
     """
     def __init__(self, urdf_path: str):
-        # We explicitly load the URDF as a free-flyer to have a consistent
-        # starting point, matching the control-side model.
         self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
-        # self.model = pin.buildModelFromUrdf(urdf_path)
         self.data = self.model.createData()
-        self.num_joints = robot_config.NUM_JOINTS # Should be 7
+        self.num_joints = robot_config.NUM_JOINTS
 
         print("\n--- REGRESSOR BUILDER MODEL INSPECTION ---")
         print(f"Model nq: {self.model.nq}") 
@@ -29,11 +26,8 @@ class PinocchioAndFrictionRegressorBuilder:
         print(f"Number of bodies in model: {self.model.nbodies}")
         print("------------------------------------------\n")
 
-        # Store model dimensions for convenience
         self.nq = self.model.nq
         self.nv = self.model.nv
-        
-        # 10 base parameters per link for the rigid body part
         self.num_link_params = 10
         self.total_link_params = self.num_joints * self.num_link_params
         
@@ -42,8 +36,20 @@ class PinocchioAndFrictionRegressorBuilder:
         self.total_friction_params = self.num_joints * self.num_friction_params
         
         self.total_params = self.total_link_params + self.total_friction_params
+        self.rnea_param_col_indices = []
+        first_actuated_body_idx = 2
+        for i in range(self.num_joints):
+            # The body index corresponding to the i-th actuated joint
+            body_id = first_actuated_body_idx + i
+            
+            # The regressor columns are indexed starting from body 1.
+            # So, parameters for body_id=1 start at col 0.
+            # Parameters for body_id=2 start at col 10.
+            # Parameters for body_id=j start at col (j-1)*10.
+            start_col = (body_id - 1) * self.num_link_params
+            self.rnea_param_col_indices.extend(range(start_col, start_col + self.num_link_params))
 
-    def compute_regressor_matrix(self, q: np.ndarray, qd: np.ndarray, qdd: np.ndarray) -> np.ndarray:
+    def compute_regressor_matrix(self, q: np.ndarray, qd: np.ndarray, qdd: np.ndarray, gravity: np.ndarray = np.array([0, 0, -9.81])) -> np.ndarray:
         """
         Computes the full dynamics regressor matrix Y for a given state.
         τ = Y * [P_rnea, P_friction]^T
@@ -58,6 +64,7 @@ class PinocchioAndFrictionRegressorBuilder:
         q_full[7 : 7 + self.num_joints] = q
         qd_full[6 : 6 + self.num_joints] = qd
         qdd_full[6 : 6 + self.num_joints] = qdd
+        self.model.gravity.linear = gravity
 
         # --- 2. Compute Rigid Body Parameter Regressor ---
         full_rnea_regressor = pin.computeJointTorqueRegressor(self.model, self.data, q_full, qd_full, qdd_full)
@@ -70,10 +77,17 @@ class PinocchioAndFrictionRegressorBuilder:
         # We also only care about the columns corresponding to the parameters of the
         # actuated links (bodies). These are bodies 1 through 7 in a standard URDF.
         # Body 0 is the base link attached to the floating joint.
-        actuated_param_cols = slice(self.num_link_params, (self.num_joints + 1) * self.num_link_params)
+        # actuated_param_cols = slice(self.num_link_params, (self.num_joints + 1) * self.num_link_params)
+
+
+        # first_actuated_body_idx = 2
+        # start_col = (first_actuated_body_idx - 1) * self.num_link_params
+        # end_col = start_col + self.total_link_params
+        # actuated_param_cols = slice(start_col, end_col)
 
         # Slice the full regressor to get the one for our actuated system
-        Y_rnea = full_rnea_regressor[actuated_torque_rows, actuated_param_cols]
+        # Y_rnea = full_rnea_regressor[actuated_torque_rows, actuated_param_cols]
+        Y_rnea = full_rnea_regressor[actuated_torque_rows, :][:, self.rnea_param_col_indices]
 
         # --- 3. Append Friction Parameter Columns ---
         Y_friction = np.zeros((self.num_joints, self.total_friction_params))

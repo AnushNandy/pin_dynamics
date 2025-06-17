@@ -12,11 +12,7 @@ class PinocchioRobotDynamics:
     A robot dynamics calculator using Pinocchio.
     """
     def __init__(self, urdf_path: str):
-        try:
-            self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
-        except Exception as e:
-            print(f"Failed to load URDF from {urdf_path}")
-            raise e
+        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
             
         print("\n--- PINOCCHIO MODEL INSPECTION ---")
         print(self.model)
@@ -44,23 +40,31 @@ class PinocchioRobotDynamics:
             end_idx = start_idx + num_link_params
             p_link_user_format = P_vec[start_idx:end_idx]
 
-            ixx, ixy, ixz, iyy, iyz, izz, mcx, mcy, mcz, mass = p_link_user_format
-            
-            m = max(mass, 1e-6)
-            c = np.array([mcx, mcy, mcz]) / m
+            # ixx, ixy, ixz, iyy, iyz, izz, mcx, mcy, mcz, mass = p_link_user_format
+            # m = max(mass, 1e-6)
+            # c = np.array([mcx, mcy, mcz]) / m
 
-            I_com_identified = np.array([
+            m = p_link_user_format[0]
+            mc = p_link_user_format[1:4]
+            ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
+            
+            m_safe = max(m, 1e-6)
+            c = mc / m_safe
+
+            I_origin_identified = np.array([
                 [ixx, ixy, ixz],
                 [ixy, iyy, iyz], 
                 [ixz, iyz, izz]
             ])
 
-            I_com_physically_valid = self._get_nearest_spd_matrix(I_com_identified)
+            # I_com_calculated = I_origin_identified + m * (pin.skew(c) @ pin.skew(c))
             
-            skew_c = pin.skew(c)
-            I_origin = I_com_physically_valid - m * (skew_c @ skew_c)
-            
-            inertia_pin = pin.Inertia(m, c, I_origin)
+            # Ensure the resulting inertia matrix is physically plausible (Symmetric Positive Definite)
+            # I_com_physically_valid = self._get_nearest_spd_matrix(I_com_calculated)
+            I_com_physically_valid = self._get_nearest_spd_matrix(I_origin_identified)
+
+
+            inertia_pin = pin.Inertia(m, c, I_com_physically_valid)
 
             self.model.inertias[body_idx] = inertia_pin
             
@@ -73,9 +77,9 @@ class PinocchioRobotDynamics:
         Finds the nearest symmetric positive-definite matrix to M.
         """
         B = (M + M.T) / 2
-        _, s, V = np.linalg.svd(B)
-        H = np.diag(np.maximum(s, 1e-6))
-        return V @ H @ V.T
+        eigenvals, eigenvecs = np.linalg.eigh(B)
+        eigenvals_clamped = np.maximum(eigenvals, 1e-6)
+        return eigenvecs @ np.diag(eigenvals_clamped) @ eigenvecs.T
 
     def compute_rnea(self, q: np.ndarray, qd: np.ndarray, qdd: np.ndarray, 
                  gravity: np.ndarray = np.array([0, 0, -9.81])) -> np.ndarray:
@@ -113,11 +117,11 @@ class PinocchioRobotDynamics:
         """
         q_full = pin.neutral(self.model)
         q_full[7 : 7 + self.num_actuated_joints] = q
-        # q_full = q
         
         ee_frame_id = self.model.getFrameId(robot_config.END_EFFECTOR_FRAME_NAME)
         pin.computeJointJacobians(self.model, self.data, q_full)
-        full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL)
+        # full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL)
+        full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
         
         actuated_J = full_J[:, 6:]
         
@@ -177,8 +181,7 @@ class PinocchioRobotDynamics:
         """Computes the joint space mass matrix M(q)."""
         q_full = pin.neutral(self.model)
         q_full[7 : 7 + self.num_actuated_joints] = q
-        
-        # This function computes M and stores it in data.M
+
         pin.crba(self.model, self.data, q_full)
         M_full = self.data.M
         

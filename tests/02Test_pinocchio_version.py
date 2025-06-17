@@ -19,6 +19,8 @@ GRAVITY_VECTOR = np.array([0, 0, -9.81])
 
 KP = np.array([600.0, 120.0, 100.0, 70.0, 40.0, 30.0, 20.0])
 KD = np.array([150.0, 20.0, 18.0, 12.0, 7.0, 5.0, 3.0])
+# KP = np.array([50, 40, 35, 30, 20, 15, 10])
+# KD = np.array([10, 8, 7, 6, 4, 3, 2])
 
 MAX_TORQUES = np.array([200.0, 200.0, 150.0, 150.0, 100.0, 80.0, 80.0])
 
@@ -151,9 +153,6 @@ def main():
     robot_dyn_pinocchio.set_parameters_from_vector(P_identified)
     
     print("Initializing high-fidelity joint models...")
-    # These models capture the non-ideal effects not in the URDF.
-    # In a real application, their parameters would also be identified.
-    # Here, we use the hard-coded values from your `06Test_rnea_w_friction.py`.
     joint_models = []
     for i in range(robot_config.NUM_JOINTS):
         base_coulomb = 2.5 - i * 0.2
