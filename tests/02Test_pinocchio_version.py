@@ -141,6 +141,12 @@ def main():
     print("Loading identified dynamic parameters...")
     params_data = np.load(IDENTIFIED_PARAMS_PATH)
     P_identified = params_data['P']
+
+    print("\n--- VERIFYING IDENTIFIED PARAMETERS ---")
+    print("Shape of P_identified:", P_identified.shape)
+    print("All parameters:", P_identified)
+    print("Sum of absolute values of P_identified:", np.sum(np.abs(P_identified)))
+    print("---------------------------------------\n")
     
     # Extract the friction parameters part for the simpler friction model
     num_link_params = robot_config.NUM_JOINTS * 10
@@ -165,7 +171,7 @@ def main():
             stribeck_vel_pos=0.1, stribeck_vel_neg=-0.1, stiffness=20000.0,
             hysteresis_shape_A=1.0, hysteresis_shape_beta=0.5,
             hysteresis_shape_gamma=0.5, hysteresis_shape_n=1.0,
-            hysteresis_scale_alpha=0.0,  # Hysteresis off for feedforward
+            hysteresis_scale_alpha=0.0, 
             dt=TIME_STEP
         ))
 

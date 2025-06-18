@@ -40,35 +40,49 @@ class PinocchioRobotDynamics:
             end_idx = start_idx + num_link_params
             p_link_user_format = P_vec[start_idx:end_idx]
 
-            # ixx, ixy, ixz, iyy, iyz, izz, mcx, mcy, mcz, mass = p_link_user_format
-            # m = max(mass, 1e-6)
-            # c = np.array([mcx, mcy, mcz]) / m
-
             m = p_link_user_format[0]
             mc = p_link_user_format[1:4]
-            ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
+
+            #--------ICOM-------------------
+            # ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
             
+            # m_safe = max(m, 1e-6)
+            # c = mc / m_safe
+            # I_origin_identified = np.array([
+            #     [ixx, ixy, ixz],
+            #     [ixy, iyy, iyz], 
+            #     [ixz, iyz, izz]
+            # ])
+            
+            # I_com_physically_valid = self._get_nearest_spd_matrix(I_origin_identified)
+
+            # inertia_pin = pin.Inertia(m, c, I_com_physically_valid)
+            #--------ICOM-------------------
+
+            
+            #--------IORIGIN-------------------
             m_safe = max(m, 1e-6)
             c = mc / m_safe
-
+            ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
             I_origin_identified = np.array([
                 [ixx, ixy, ixz],
                 [ixy, iyy, iyz], 
                 [ixz, iyz, izz]
             ])
-
-            # I_com_calculated = I_origin_identified + m * (pin.skew(c) @ pin.skew(c))
+            # Convert I_origin back to I_com using inverse Parallel Axis Theorem
+            # I_com = I_origin + m * skew(c) * skew(c)
+            c_skew = pin.skew(c)
+            I_com_identified = I_origin_identified + m * (c_skew @ c_skew)
             
-            # Ensure the resulting inertia matrix is physically plausible (Symmetric Positive Definite)
-            # I_com_physically_valid = self._get_nearest_spd_matrix(I_com_calculated)
-            I_com_physically_valid = self._get_nearest_spd_matrix(I_origin_identified)
-
-
-            inertia_pin = pin.Inertia(m, c, I_com_physically_valid)
+            # Ensure the resulting I_com is physically plausible (Symmetric Positive Definite)
+            I_com_valid = self._get_nearest_spd_matrix(I_com_identified)
+            inertia_pin = pin.Inertia(m, c, I_com_valid)
+            #--------IORIGIN-------------------
 
             self.model.inertias[body_idx] = inertia_pin
             
         print("Successfully updated Pinocchio model with identified parameters.")
+        pin.forwardKinematics(self.model, self.data, pin.neutral(self.model))
         self.data = self.model.createData()
 
     @staticmethod

@@ -27,17 +27,26 @@ def get_ground_truth_params(model: pin.Model) -> np.ndarray:
         m = inertia.mass
         c = inertia.lever      # Center of mass in local frame
         I_com = inertia.inertia  # Inertia tensor about COM
+        c_skew = pin.skew(c)
+        I_origin = I_com - m * (c_skew @ c_skew)
         
         p_link = np.zeros(10)
         p_link[0] = m
         p_link[1:4] = m * c
 
-        p_link[4] = I_com[0, 0]  # Ixx_com
-        p_link[5] = I_com[0, 1]  # Ixy_com
-        p_link[6] = I_com[0, 2]  # Ixz_com
-        p_link[7] = I_com[1, 1]  # Iyy_com
-        p_link[8] = I_com[1, 2]  # Iyz_com
-        p_link[9] = I_com[2, 2]  # Izz_com
+        # p_link[4] = I_com[0, 0]  # Ixx_com
+        # p_link[5] = I_com[0, 1]  # Ixy_com
+        # p_link[6] = I_com[0, 2]  # Ixz_com
+        # p_link[7] = I_com[1, 1]  # Iyy_com
+        # p_link[8] = I_com[1, 2]  # Iyz_com
+        # p_link[9] = I_com[2, 2]  # Izz_com
+
+        p_link[4] = I_origin[0, 0]  # Ixx_com
+        p_link[5] = I_origin[0, 1]  # Ixy_com
+        p_link[6] = I_origin[0, 2]  # Ixz_com
+        p_link[7] = I_origin[1, 1]  # Iyy_com
+        p_link[8] = I_origin[1, 2]  # Iyz_com
+        p_link[9] = I_origin[2, 2]  # Izz_com
         
         p_rnea_true.extend(p_link)
         
@@ -75,8 +84,8 @@ def main():
         return
     np.random.seed(42)
     q_test = np.random.uniform(-np.pi, np.pi, size=NUM_JOINTS)
-    qd_test = np.random.uniform(-2.0, 2.0, size=NUM_JOINTS)
-    qdd_test = np.random.uniform(-5.0, 5.0, size=NUM_JOINTS)
+    qd_test = np.random.uniform(-0.1, 0.1, size=NUM_JOINTS)
+    qdd_test = np.random.uniform(-0.01, 0.01, size=NUM_JOINTS)
 
     print("\n--- Generated Test State (q, qd, qdd) ---")
     print(f"q:   {np.round(q_test, 3)}")

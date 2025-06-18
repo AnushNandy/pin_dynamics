@@ -7,6 +7,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from config import robot_config
 # Import your Pinocchio dynamics class
 from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics
+from src.systemid.pinocchio_friction_regressor import smooth_sign
 
 # Constants
 URDF_PATH = robot_config.URDF_PATH
@@ -75,7 +76,7 @@ def main():
         tau_friction = np.zeros(NUM_JOINTS)
         for i in range(NUM_JOINTS):
             tau_friction[i] = (true_friction_coeffs['viscous'][i] * qd_des[i] +
-                             true_friction_coeffs['coulomb'][i] * np.sign(qd_des[i]))
+                             true_friction_coeffs['coulomb'][i] * smooth_sign(qd_des[i]))
 
         # The total torque is the sum of RNEA and friction.
         tau_total = tau_rnea + tau_friction
