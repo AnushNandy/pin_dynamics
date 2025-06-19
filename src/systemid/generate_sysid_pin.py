@@ -16,7 +16,7 @@ SIM_DURATION = 100.0
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
 
-def generate_fourier_series_trajectory(t, num_harmonics=5):
+def generate_fourier_series_trajectory(t, num_harmonics=6):
     """
     Generates an exciting trajectory using a sum of sinusoids for each joint.
     (This function is excellent, no changes needed)

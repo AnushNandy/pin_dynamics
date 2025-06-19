@@ -33,8 +33,10 @@ class PinocchioRobotDynamics:
         Update the link dynamic parameters from a flat parameter vector P.
         """
         num_link_params = 10
-        for i in range(self.num_actuated_joints):
-            body_idx = i + 2 
+        num_moving_bodies = self.model.nbodies - 1
+
+        for i in range(num_moving_bodies):
+            body_idx = i + 1
             
             start_idx = i * num_link_params
             end_idx = start_idx + num_link_params
@@ -43,24 +45,6 @@ class PinocchioRobotDynamics:
             m = p_link_user_format[0]
             mc = p_link_user_format[1:4]
 
-            #--------ICOM-------------------
-            # ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
-            
-            # m_safe = max(m, 1e-6)
-            # c = mc / m_safe
-            # I_origin_identified = np.array([
-            #     [ixx, ixy, ixz],
-            #     [ixy, iyy, iyz], 
-            #     [ixz, iyz, izz]
-            # ])
-            
-            # I_com_physically_valid = self._get_nearest_spd_matrix(I_origin_identified)
-
-            # inertia_pin = pin.Inertia(m, c, I_com_physically_valid)
-            #--------ICOM-------------------
-
-            
-            #--------IORIGIN-------------------
             m_safe = max(m, 1e-6)
             c = mc / m_safe
             ixx, ixy, ixz, iyy, iyz, izz = p_link_user_format[4], p_link_user_format[5], p_link_user_format[6], p_link_user_format[7], p_link_user_format[8], p_link_user_format[9]
@@ -69,15 +53,14 @@ class PinocchioRobotDynamics:
                 [ixy, iyy, iyz], 
                 [ixz, iyz, izz]
             ])
-            # Convert I_origin back to I_com using inverse Parallel Axis Theorem
+
             # I_com = I_origin + m * skew(c) * skew(c)
             c_skew = pin.skew(c)
             I_com_identified = I_origin_identified + m * (c_skew @ c_skew)
             
-            # Ensure the resulting I_com is physically plausible (Symmetric Positive Definite)
+            # ESymmetric Positive Definite)
             I_com_valid = self._get_nearest_spd_matrix(I_com_identified)
             inertia_pin = pin.Inertia(m, c, I_com_valid)
-            #--------IORIGIN-------------------
 
             self.model.inertias[body_idx] = inertia_pin
             

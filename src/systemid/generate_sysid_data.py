@@ -13,7 +13,7 @@ TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
 
 
-def generate_fourier_series_trajectory(t, num_harmonics=5):
+def generate_fourier_series_trajectory(t, num_harmonics=6):
     """
     Generat exciting trajectory using a sum of sinusoids for each joint.
     Crucial for system identification to ensure all dynamic effects are present.
@@ -23,7 +23,6 @@ def generate_fourier_series_trajectory(t, num_harmonics=5):
     qdd_des = np.zeros(NUM_JOINTS)
 
     # Base frequency
-    # w = 2 * np.pi * 0.1
     w = 2 * np.pi * 0.5
 
     for i in range(NUM_JOINTS):

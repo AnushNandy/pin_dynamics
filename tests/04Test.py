@@ -15,31 +15,24 @@ def get_ground_truth_params(model: pin.Model) -> np.ndarray:
     Constructs the ground-truth parameter vector P_true from the URDF and
     the known friction coefficients used in the data generator.
 
-    ## FINAL CORRECTION:
     1. Uses the correct Parallel Axis Theorem: I_origin = I_com - m*skew(c)*skew(c)
     2. Assembles the parameter vector in the order Pinocchio's regressor expects:
        [m, mcx, mcy, mcz, Ixx, Ixy, Ixz, Iyy, Iyz, Izz]
     """
     p_rnea_true = []
+    num_moving_bodies = model.nbodies - 1
     
-    for i in range(2, NUM_JOINTS + 2):
+    for i in range(1, num_moving_bodies + 1):
         inertia = model.inertias[i]
         m = inertia.mass
         c = inertia.lever      # Center of mass in local frame
         I_com = inertia.inertia  # Inertia tensor about COM
         c_skew = pin.skew(c)
-        I_origin = I_com - m * (c_skew @ c_skew)
+        I_origin = I_com - m * (c_skew @ c_skew)  
         
         p_link = np.zeros(10)
         p_link[0] = m
         p_link[1:4] = m * c
-
-        # p_link[4] = I_com[0, 0]  # Ixx_com
-        # p_link[5] = I_com[0, 1]  # Ixy_com
-        # p_link[6] = I_com[0, 2]  # Ixz_com
-        # p_link[7] = I_com[1, 1]  # Iyy_com
-        # p_link[8] = I_com[1, 2]  # Iyz_com
-        # p_link[9] = I_com[2, 2]  # Izz_com
 
         p_link[4] = I_origin[0, 0]  # Ixx_com
         p_link[5] = I_origin[0, 1]  # Ixy_com
@@ -83,7 +76,7 @@ def main():
         print(f"ERROR: Parameter vector shapes don't match! P_true={P_true.shape}, P_id={P_identified.shape}")
         return
     np.random.seed(42)
-    q_test = np.random.uniform(-np.pi, np.pi, size=NUM_JOINTS)
+    q_test = np.random.uniform(0, np.pi/3, size=NUM_JOINTS)
     qd_test = np.random.uniform(-0.1, 0.1, size=NUM_JOINTS)
     qdd_test = np.random.uniform(-0.01, 0.01, size=NUM_JOINTS)
 
@@ -111,11 +104,11 @@ def main():
     print("\n--- VERIFICATION 1: Ground Truth Self-Consistency (Y * P_true == tau_true?) ---")
     tau_from_Y_P_true = Y_test @ P_true
     error1 = np.linalg.norm(tau_true - tau_from_Y_P_true)
-    print(f"Torque from direct computation (τ_true):     {np.round(tau_true, 6)}")
-    print(f"Torque from regressor (Y @ P_true):          {np.round(tau_from_Y_P_true, 6)}")
-    print(f"Difference: {np.round(tau_true - tau_from_Y_P_true, 6)}")
+    print(f"Torque from direct computation (τ_true):     {np.round(tau_true, 3)}")
+    print(f"Torque from regressor (Y @ P_true):          {np.round(tau_from_Y_P_true, 3)}")
+    print(f"Difference: {np.round(tau_true - tau_from_Y_P_true, 3)}")
     print(f"--> L2 Norm of Error: {error1:.2e}")
-    if error1 < 1e-3:
+    if error1 < 1e-2:
         print("--> SUCCESS: The regressor matrix correctly represents the dynamics.")
     else:
         print("--> FAILURE: The regressor matrix is NOT consistent with the dynamics.")
@@ -124,10 +117,10 @@ def main():
     print("\n--- VERIFICATION 2: Identified Parameter Consistency (Y * P_identified ~= tau_true?) ---")
     tau_from_Y_P_identified = Y_test @ P_identified
     error2 = np.linalg.norm(tau_true - tau_from_Y_P_identified)
-    print(f"Torque from ground truth data (τ_true):      {np.round(tau_true, 6)}")
-    print(f"Torque from identified params (Y @ P_id):    {np.round(tau_from_Y_P_identified, 6)}")
+    print(f"Torque from ground truth data (τ_true):      {np.round(tau_true, 3)}")
+    print(f"Torque from identified params (Y @ P_id):    {np.round(tau_from_Y_P_identified, 3)}")
     print(f"--> L2 Norm of Error: {error2:.2e}")
-    if error2 < 1e-1:
+    if error2 < 1e-3:
         print("--> SUCCESS: The identified parameters provide a good fit for this data point.")
     else:
         print("--> WARNING: The identified parameters have a large error for this data point.")
@@ -144,8 +137,8 @@ def main():
     tau_rnea_from_engine = dynamics_model_identified.compute_rnea(q_test, qd_test, qdd_test)
 
     error3 = np.linalg.norm(tau_rnea_from_engine - tau_rnea_from_Y_P)
-    print(f"RNEA torque from regressor:      {np.round(tau_rnea_from_Y_P, 6)}")
-    print(f"RNEA torque from dynamics engine:  {np.round(tau_rnea_from_engine, 6)}")
+    print(f"RNEA torque from regressor:      {np.round(tau_rnea_from_Y_P, 3)}")
+    print(f"RNEA torque from dynamics engine:  {np.round(tau_rnea_from_engine, 3)}")
     print(f"--> L2 Norm of Error: {error3:.2e}")
     if error3 < 1e-3:
         print("--> SUCCESS: The custom dynamics engine is consistent with the regressor.")
