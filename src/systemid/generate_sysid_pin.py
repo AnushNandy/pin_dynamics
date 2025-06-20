@@ -54,13 +54,13 @@ def main():
 
     # 2. Define the "ground-truth" friction coefficients that we want to identify.
     # These should be POSITIVE.
-    true_friction_coeffs = {
-        'viscous': [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
-        'coulomb': [0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02]
-    }
-    print("Ground Truth Friction Params (Fv, Fc):")
-    for i in range(NUM_JOINTS):
-        print(f"  Joint {i}: Fv={true_friction_coeffs['viscous'][i]:.2f}, Fc={true_friction_coeffs['coulomb'][i]:.2f}")
+    # true_friction_coeffs = {
+    #     'viscous': [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
+    #     'coulomb': [0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02]
+    # }
+    # print("Ground Truth Friction Params (Fv, Fc):")
+    # for i in range(NUM_JOINTS):
+    #     print(f"  Joint {i}: Fv={true_friction_coeffs['viscous'][i]:.2f}, Fc={true_friction_coeffs['coulomb'][i]:.2f}")
 
 
     log_q, log_qd, log_qdd, log_tau = [], [], [], []
@@ -73,13 +73,14 @@ def main():
         tau_rnea = dynamics_model.compute_rnea(q_des, qd_des, qdd_des)
 
         # 4. Add the ground-truth friction torques.
-        tau_friction = np.zeros(NUM_JOINTS)
-        for i in range(NUM_JOINTS):
-            tau_friction[i] = (true_friction_coeffs['viscous'][i] * qd_des[i] +
-                             true_friction_coeffs['coulomb'][i] * smooth_sign(qd_des[i]))
+        # tau_friction = np.zeros(NUM_JOINTS)
+        # for i in range(NUM_JOINTS):
+        #     tau_friction[i] = (true_friction_coeffs['viscous'][i] * qd_des[i] +
+        #                      true_friction_coeffs['coulomb'][i] * smooth_sign(qd_des[i]))
 
         # The total torque is the sum of RNEA and friction.
-        tau_total = tau_rnea + tau_friction
+        # tau_total = tau_rnea + tau_friction
+        tau_total = tau_rnea
 
         # 5. Log the data
         log_q.append(q_des)

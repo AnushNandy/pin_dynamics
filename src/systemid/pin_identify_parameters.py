@@ -3,6 +3,7 @@ import time, os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from config import robot_config
 from pinocchio_friction_regressor import PinocchioAndFrictionRegressorBuilder
+from sklearn.linear_model import Ridge
 
 # DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data.npz"
 DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz"
@@ -62,13 +63,18 @@ def main():
 
     # 4. Solve least squares with regularization
     print("Solving for dynamic parameters...")
+    ridge_model = Ridge(alpha=L2_REGULARIZATION, fit_intercept=False, solver='auto')
+
+    ridge_model.fit(Y_stack, tau_stack.ravel())
+
+    identified_params = ridge_model.coef_
     
-    Y_T_Y = Y_stack.T @ Y_stack
-    Y_T_tau = Y_stack.T @ tau_stack
-    regularization_matrix = L2_REGULARIZATION * np.eye(num_params)
+    # Y_T_Y = Y_stack.T @ Y_stack
+    # Y_T_tau = Y_stack.T @ tau_stack
+    # regularization_matrix = L2_REGULARIZATION * np.eye(num_params)
     
-    identified_params = np.linalg.solve(Y_T_Y + regularization_matrix, Y_T_tau)
-    identified_params = identified_params.flatten()
+    # identified_params = np.linalg.solve(Y_T_Y + regularization_matrix, Y_T_tau)
+    # identified_params = identified_params.flatten()
 
     print("--- Identification Complete ---")
 
@@ -77,12 +83,12 @@ def main():
     print(f"Identified parameters saved to '{SAVE_PATH}'")
 
     # 6. Display friction coefficients
-    print("\nIdentified Friction Coefficients (Viscous, Coulomb):")
-    friction_params = identified_params[regressor_builder.total_link_params:]
-    for i in range(num_joints):
-        fv = friction_params[i * 2]
-        fc = friction_params[i * 2 + 1]
-        print(f"  Joint {i}: Fv = {fv:.4f}, Fc = {fc:.4f}")
+    # print("\nIdentified Friction Coefficients (Viscous, Coulomb):")
+    # friction_params = identified_params[regressor_builder.total_link_params:]
+    # for i in range(num_joints):
+    #     fv = friction_params[i * 2]
+    #     fc = friction_params[i * 2 + 1]
+    #     print(f"  Joint {i}: Fv = {fv:.4f}, Fc = {fc:.4f}")
 
 if __name__ == "__main__":
     main()

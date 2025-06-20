@@ -11,9 +11,6 @@ class PinocchioAndFrictionRegressorBuilder:
     """
     Constructs the dynamics regressor matrix for BOTH rigid-body parameters
     and friction parameters.
-
-    This definitive version is robust to different URDF structures (fixed base vs. floating)
-    by correctly constructing the full state vectors.
     """
     def __init__(self, urdf_path: str):
         self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
@@ -34,13 +31,15 @@ class PinocchioAndFrictionRegressorBuilder:
         self.total_link_params = self.num_moving_bodies * self.num_link_params
         
         # 2 friction parameters (Viscous, Coulomb) per joint
-        self.num_friction_params = 2
-        self.total_friction_params = self.num_joints * self.num_friction_params
+        # self.num_friction_params = 2
+        # self.total_friction_params = self.num_joints * self.num_friction_params
         
         self.rnea_param_col_indices = []
         
 
-        self.total_params = self.total_link_params + self.total_friction_params
+        # self.total_params = self.total_link_params + self.total_friction_params
+        self.total_params = self.total_link_params
+
 
     def compute_regressor_matrix(self, q: np.ndarray, qd: np.ndarray, qdd: np.ndarray, gravity: np.ndarray = np.array([0, 0, -9.81])) -> np.ndarray:
         """
@@ -72,18 +71,20 @@ class PinocchioAndFrictionRegressorBuilder:
         Y_rnea = full_rnea_regressor[actuated_torque_rows, actuated_param_cols]
 
         # --- 3. Append Friction Parameter Columns ---
-        Y_friction = np.zeros((self.num_joints, self.total_friction_params))
+        # Y_friction = np.zeros((self.num_joints, self.total_friction_params))
 
-        for i in range(self.num_joints):
-            # Viscous friction column: Fv * qd
-            viscous_col_idx = i * self.num_friction_params
-            Y_friction[i, viscous_col_idx] = qd[i]
+        # for i in range(self.num_joints):
+        #     # Viscous friction column: Fv * qd
+        #     viscous_col_idx = i * self.num_friction_params
+        #     Y_friction[i, viscous_col_idx] = qd[i]
 
-            # Coulomb friction column: Fc * sign(qd)
-            coulomb_col_idx = i * self.num_friction_params + 1
-            Y_friction[i, coulomb_col_idx] = smooth_sign(qd[i])
+        #     # Coulomb friction column: Fc * sign(qd)
+        #     coulomb_col_idx = i * self.num_friction_params + 1
+        #     Y_friction[i, coulomb_col_idx] = smooth_sign(qd[i])
             
-        Y_full = np.hstack([Y_rnea, Y_friction])
+        # Y_full = np.hstack([Y_rnea, Y_friction])
+        Y_full = Y_rnea
+
         
         expected_shape = (self.num_joints, self.total_params)
         if Y_full.shape != expected_shape:

@@ -279,17 +279,4 @@
 		<axis xyz="0 0 1" />
 		<limit lower="0" upper="0" effort="0" velocity="0" />
 	</joint>
-	<link name="Weight">
-		<inertial>
-			<origin xyz="-0.00663058 0.01836489 0.08445825" rpy="0.0 -1.3788 -1.2243" />
-			<mass value="10.0" />
-			<inertia ixx="4.16667e-2" ixy="0.0" ixz="0.0" iyy="1.66667e-1" iyz="0" izz="1.66667e-1" />
-		</inertial>
-	</link>
-	<joint name="Sensor Flange" type="fixed">
-		<origin xyz="0.0 0.0 0.0987" rpy="0.0 0.0 2.7951" />
-		<parent link="End_Effector" />
-		<child link="Weight" />
-		<axis xyz="0 0 0" />
-	</joint>
 </robot>

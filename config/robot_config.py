@@ -4,6 +4,7 @@ import numpy as np
 M_PI = np.pi
 ROBOT_NAME = "P4.SLDASM"
 URDF_PATH = r"/home/robot/dev/dyn/ArmModels/urdfs/P4/P4_Contra-Angle_right.urdf"
+URDF_PATH_LEFT = r"/home/robot/dev/dyn/ArmModels/urdfs/P4/P4_Contra-Angle_left.urdf"
 KDL_CHAIN = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
                0.37502, 0.0, 0.07664, 0.0, 0.0, 0.0,
                -0.025, 0.0, 0.1645, 0.0, M_PI / 2.0, 0.0,

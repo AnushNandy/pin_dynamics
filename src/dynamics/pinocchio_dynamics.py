@@ -1,5 +1,3 @@
-# In file: pinocchio_dynamics.py
-
 import pinocchio as pin
 import numpy as np
 import os
@@ -8,12 +6,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from config import robot_config
 
 class PinocchioRobotDynamics:
-    """
-    A robot dynamics calculator using Pinocchio.
-    """
     def __init__(self, urdf_path: str):
-        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
-            
+        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())            
         print("\n--- PINOCCHIO MODEL INSPECTION ---")
         print(self.model)
         print(f"Total configuration dimension (model.nq): {self.model.nq}")
@@ -117,7 +111,6 @@ class PinocchioRobotDynamics:
         
         ee_frame_id = self.model.getFrameId(robot_config.END_EFFECTOR_FRAME_NAME)
         pin.computeJointJacobians(self.model, self.data, q_full)
-        # full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL)
         full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
         
         actuated_J = full_J[:, 6:]
@@ -155,8 +148,9 @@ class PinocchioRobotDynamics:
         q_full = pin.neutral(self.model)
         q_full[7 : 7 + self.num_actuated_joints] = q        
         g_full = pin.computeGeneralizedGravity(self.model, self.data, q_full)
-        return g_full[6 : 6 + self.num_actuated_joints]
 
+        return g_full[6 : 6 + self.num_actuated_joints]
+    
     def compute_coriolis_matrix(self, q: np.ndarray, qd: np.ndarray) -> np.ndarray:
         """
         Computes the Coriolis and centrifugal matrix C(q, qd).
@@ -180,6 +174,7 @@ class PinocchioRobotDynamics:
         q_full[7 : 7 + self.num_actuated_joints] = q
 
         pin.crba(self.model, self.data, q_full)
+
         M_full = self.data.M
         
         actuated_slice = slice(6, 6 + self.num_actuated_joints)

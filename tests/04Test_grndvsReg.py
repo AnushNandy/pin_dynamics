@@ -45,17 +45,19 @@ def get_ground_truth_params(model: pin.Model) -> np.ndarray:
         
         print(f"Body {i}: m={m:.4f}, c={np.round(c, 4)}, I_com_diag=[{I_com[0,0]:.4f}, {I_com[1,1]:.4f}, {I_com[2,2]:.4f}]")
 
-    true_friction_coeffs = {
-        'viscous': [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
-        'coulomb': [0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02]
-    }
-    p_friction_true = []
-    for i in range(NUM_JOINTS):
-        p_friction_true.append(true_friction_coeffs['viscous'][i])
-        p_friction_true.append(true_friction_coeffs['coulomb'][i])
+    # true_friction_coeffs = {
+    #     'viscous': [0.12, 0.11, 0.10, 0.09, 0.08, 0.07, 0.06],
+    #     'coulomb': [0.08, 0.07, 0.06, 0.05, 0.04, 0.03, 0.02]
+    # }
+    # p_friction_true = []
+    # for i in range(NUM_JOINTS):
+    #     p_friction_true.append(true_friction_coeffs['viscous'][i])
+    #     p_friction_true.append(true_friction_coeffs['coulomb'][i])
         
-    print(f"Ground truth parameter vector length: {len(p_rnea_true)} + {len(p_friction_true)} = {len(p_rnea_true) + len(p_friction_true)}")
-    return np.concatenate([p_rnea_true, p_friction_true])
+    # print(f"Ground truth parameter vector length: {len(p_rnea_true)} + {len(p_friction_true)} = {len(p_rnea_true) + len(p_friction_true)}")
+    # return np.concatenate([p_rnea_true, p_friction_true])
+    return np.concatenate([p_rnea_true])
+
 
 
 def main():
@@ -87,14 +89,16 @@ def main():
 
     # --- 3. Compute Ground Truth Torque & Regressor ---
     tau_rnea_true = dynamics_model_true.compute_rnea(q_test, qd_test, qdd_test)
-    tau_friction_true = np.array([
-        P_true[-NUM_JOINTS*2 + 2*i] * qd_test[i] + P_true[-NUM_JOINTS*2 + 2*i+1] * smooth_sign(qd_test[i])
-        for i in range(NUM_JOINTS)
-    ])
-    tau_true = tau_rnea_true + tau_friction_true
+    # tau_friction_true = np.array([
+    #     P_true[-NUM_JOINTS*2 + 2*i] * qd_test[i] + P_true[-NUM_JOINTS*2 + 2*i+1] * smooth_sign(qd_test[i])
+    #     for i in range(NUM_JOINTS)
+    # ])
+    # tau_true = tau_rnea_true + tau_friction_true
+    tau_true = tau_rnea_true
+
     
     print(f"\ntau_rnea_true: {np.round(tau_rnea_true, 3)}")
-    print(f"tau_friction_true: {np.round(tau_friction_true, 3)}")
+    # print(f"tau_friction_true: {np.round(tau_friction_true, 3)}")
     print(f"tau_total_true: {np.round(tau_true, 3)}")
     
     Y_test = regressor_builder.compute_regressor_matrix(q_test, qd_test, qdd_test)

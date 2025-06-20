@@ -19,11 +19,13 @@ IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params.npz
 
 # Gains are kept as vectors, as in the original script
 # KP = np.array([100.0, 100.0, 80.0, 70.0, 40.0, 30.0, 20.0])
-KP = np.array([600.0, 600.0, 600.0, 600.0, 600.0, 600.0, 600.0])
-KD = np.array([2*np.sqrt(KP[0]), 2*np.sqrt(KP[1]), 2*np.sqrt(KP[2]), 2*np.sqrt(KP[3]), 2*np.sqrt(KP[4]),2*np.sqrt(KP[5]),2*np.sqrt(KP[6])])
+# KP = np.array([600.0, 600.0, 600.0, 600.0, 600.0, 600.0, 600.0])
+KP = np.array([100.0, 100.0, 200.0, 200.0, 80.0, 100.0, 100.0])
+KD = np.array([2 * np.sqrt(k) for k in KP]) 
 KI = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) 
 GRAVITY_VECTOR = np.array([0, 0, -9.81])
 MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
+# MAX_TORQUES = np.array([140, 140, 51, 100, 51, 51, 51])
 
 class PinocchioFeedforwardController:
     """
@@ -68,14 +70,15 @@ class PinocchioFeedforwardController:
         tau_rnea = self.model_dynamics.compute_rnea(q, qd, qdd, gravity=GRAVITY_VECTOR)
         
         # 2. Compute the identified friction torque
-        tau_friction = np.zeros(self.num_joints)
-        for i in range(self.num_joints):
-            fv_hat = self.friction_params[i * 2]      # Identified viscous friction
-            fc_hat = self.friction_params[i * 2 + 1]  # Identified Coulomb friction
-            tau_friction[i] = fv_hat * qd[i] + fc_hat * smooth_sign(qd[i])
+        # tau_friction = np.zeros(self.num_joints)
+        # for i in range(self.num_joints):
+        #     fv_hat = self.friction_params[i * 2]      # Identified viscous friction
+        #     fc_hat = self.friction_params[i * 2 + 1]  # Identified Coulomb friction
+            # tau_friction[i] = fv_hat * qd[i] + fc_hat * smooth_sign(qd[i])
             
         # 3. The total feedforward torque is the sum
-        return tau_rnea + tau_friction
+        # return tau_rnea + tau_friction
+        return tau_rnea 
     
 def get_joint_indices_by_name(robot_id, joint_names):
     joint_map = {p.getJointInfo(robot_id, i)[1].decode('UTF-8'): i for i in range(p.getNumJoints(robot_id))}
@@ -89,6 +92,7 @@ def get_end_effector_link_index(robot_id):
     return last_joint_info[0] # The link index is the first element of the joint info
 
 def compute_inverse_kinematics(robot_id, end_effector_link_index, robot_target_pos, robot_target_orientation):
+    
     ik_solution = p.calculateInverseKinematics(
         robot_id,
         end_effector_link_index,
@@ -97,7 +101,7 @@ def compute_inverse_kinematics(robot_id, end_effector_link_index, robot_target_p
     )
     return np.array(ik_solution)
 
-def generate_trajectory_ik(q_actual, q_des, total_time=0.1, dt=TIME_STEP): # Shortened time for on-the-fly generation
+def generate_trajectory_ik(q_actual, q_des, total_time=0.1, dt=TIME_STEP):
     q_actual = np.array(q_actual)
     q_des = np.array(q_des)
     timesteps = np.arange(0, total_time, dt)
@@ -126,20 +130,30 @@ def generate_trajectory_ik(q_actual, q_des, total_time=0.1, dt=TIME_STEP): # Sho
     return q_des_steps, qd_des_steps, qdd_des_steps
 
 def main():
-    # [REFACTOR] Initialize our new Pinocchio-based controller
-    # This replaces the initialization of RobotDynamics and JointModel
-    try:
-        controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
-    except FileNotFoundError:
-        return
+    controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
 
-    # --- PyBullet setup is the same ---
     p.connect(p.GUI)
     p.setTimeStep(TIME_STEP)
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
     p.setGravity(*GRAVITY_VECTOR)
     p.loadURDF("plane.urdf")
-    robot_id = p.loadURDF(URDF_PATH, [0, 0, 0.5], useFixedBase=True)
+    robot_start_pos = [0, 0, 0.5]
+    robot_start_orn = p.getQuaternionFromEuler([0, 0, 0])
+    # robot_id = p.loadURDF(URDF_PATH, [0, 0, 0.5], useFixedBase=True)
+    robot_id = p.loadURDF(URDF_PATH, robot_start_pos, useFixedBase=False)
+    p.createConstraint(
+        parentBodyUniqueId=robot_id,
+        parentLinkIndex=-1,  # -1 for the base
+        childBodyUniqueId=-1,
+        childLinkIndex=-1,
+        jointType=p.JOINT_FIXED,
+        jointAxis=[0, 0, 0],
+        parentFramePosition=[0, 0, 0],
+        childFramePosition=robot_start_pos,
+        childFrameOrientation=robot_start_orn
+    )
+    print("Constrained robot base to world to prevent falling during test.")
+    
     joint_indices = get_joint_indices_by_name(robot_id, robot_config.ACTUATED_JOINT_NAMES)
     end_effector_link_index = get_end_effector_link_index(robot_id)
 
@@ -149,7 +163,6 @@ def main():
     print("\n--- Starting Refactored Simulation with Pinocchio Dynamics ---")
     print("Note: This script preserves the original's control loop structure.")
 
-    # [REFACTOR] The control loop structure is preserved exactly.
     for t in np.arange(0, SIM_DURATION, TIME_STEP):
         # Get actual state from simulation
         joint_states = p.getJointStates(robot_id, joint_indices)
@@ -160,10 +173,8 @@ def main():
         link_state = p.getLinkState(robot_id, end_effector_link_index, computeForwardKinematics=1)
         pos, orn = link_state[0], link_state[1] # World position/orientation of the link frame
 
-        # Compute IK to get a desired joint configuration (original logic)
         q_desired = compute_inverse_kinematics(robot_id, end_effector_link_index, pos, orn)
         
-        # Generate a short trajectory on-the-fly (original logic)
         q_des_steps, qd_des_steps, qdd_des_steps = generate_trajectory_ik(q_actual, q_desired)
 
         if q_des_steps.shape[0] == 0:
@@ -182,13 +193,14 @@ def main():
 
 
             integral_error += (q_des - q_current_actual) * TIME_STEP
-            if np.linalg.norm(q_des - q_current_actual) > 0.5:  # 0.5 radians threshold
-                integral_error *= 0.1  # Reduce rather than zero to maintain some history
+            if np.linalg.norm(q_des - q_current_actual) > 0.5: 
+                integral_error *= 0.1  
             
-            tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual) + KI * integral_error
+            # tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual) + KI * integral_error
             
-            # tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual)
+            tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual)
             tau_total = tau_ff + tau_fb
+
             tau_limited = np.clip(tau_total, -MAX_TORQUES, MAX_TORQUES)
             p.setJointMotorControlArray(robot_id, joint_indices, p.TORQUE_CONTROL, forces=tau_limited)
             p.stepSimulation()
@@ -199,7 +211,6 @@ def main():
 
     p.disconnect()
 
-    # --- Plotting logic is the same ---
     array_log_t = np.array(log_t)
     array_log_q_des = np.array(log_q_des)
     array_log_q_actual = np.array(log_q_actual)

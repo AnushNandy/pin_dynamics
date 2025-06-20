@@ -17,13 +17,15 @@ SIM_DURATION = 20.0
 TIME_STEP = 1. / 240.
 GRAVITY_VECTOR = np.array([0, 0, -9.81])
 
-KP = np.array([600.0, 600.0, 600.0, 600.0, 600.0, 600.0, 400.0])
+# KP = np.array([600.0, 600.0, 600.0, 600.0, 600.0, 600.0, 400.0])
+KP = np.array([100.0, 100.0, 200.0, 200.0, 80.0, 100.0, 20.0])
 KD = np.array([2 * np.sqrt(k) for k in KP]) # Critically damped
 
-MAX_TORQUES = np.array([200.0, 200.0, 150.0, 150.0, 100.0, 80.0, 80.0])
+# MAX_TORQUES = np.array([200.0, 200.0, 150.0, 150.0, 100.0, 80.0, 80.0])
+MAX_TORQUES = np.array([140, 140, 51, 100, 51, 51, 11])
 
-JOINT_AMPLITUDES = np.deg2rad([15, 20, 12, 18, 10, 8, 6])
-JOINT_FREQUENCIES = np.array([0.2, 0.25, 0.2, 0.3, 0.15, 0.2, 0.1])
+JOINT_AMPLITUDES = np.deg2rad([15, 20, 12, 18, 10, 8, 0])
+JOINT_FREQUENCIES = np.array([0.2, 0.25, 0.2, 0.3, 0.15, 0.2, 0.0])
 JOINT_PHASE_OFFSETS = np.array([0, np.pi / 4, np.pi / 3, np.pi / 2, np.pi / 6, np.pi / 8, np.pi / 12])
 INITIAL_JOINT_STATES = np.zeros(robot_config.NUM_JOINTS)
 
