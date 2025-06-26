@@ -6,7 +6,7 @@ from src.systemid.pinocchio_friction_regressor import PinocchioAndFrictionRegres
 from config import robot_config
 
 URDF_PATH = robot_config.URDF_PATH
-IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params.npz"
+IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
 NUM_JOINTS = robot_config.NUM_JOINTS
 NUM_SAMPLES = 5000 
 

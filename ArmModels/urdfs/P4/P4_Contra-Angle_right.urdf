@@ -282,8 +282,8 @@
 	<link name="Weight">
 		<inertial>
 			<origin xyz="-0.00663058 0.01836489 0.08445825" rpy="0.0 -1.3788 -1.2243" />
-			<mass value="10" />
-			<inertia ixx="4.16667e-2" ixy="0.0" ixz="0.0" iyy="1.66667e-1" iyz="0" izz="1.66667e-1" />
+			<mass value="1" />
+			<inertia ixx="4.16667e-3" ixy="0.0" ixz="0.0" iyy="1.66667e-2" iyz="0" izz="1.66667e-2" />
 		</inertial>
 	</link>
 	<joint name="Sensor Flange" type="fixed">

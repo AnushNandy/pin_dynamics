@@ -5,9 +5,11 @@ from config import robot_config
 from pinocchio_friction_regressor import PinocchioAndFrictionRegressorBuilder
 from sklearn.linear_model import Ridge
 
-# DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data.npz"
-DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz"
-SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_params.npz"
+# DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pinocchio.npz"
+# SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_params.npz"
+
+DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
+SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
 L2_REGULARIZATION = 1e-3
 
 def main():
@@ -63,7 +65,7 @@ def main():
 
     # 4. Solve least squares with regularization
     print("Solving for dynamic parameters...")
-    ridge_model = Ridge(alpha=L2_REGULARIZATION, fit_intercept=False, solver='auto')
+    ridge_model = Ridge(alpha=L2_REGULARIZATION, fit_intercept=False, solver='svd')
 
     ridge_model.fit(Y_stack, tau_stack.ravel())
 

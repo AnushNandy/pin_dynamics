@@ -1,5 +1,3 @@
-# File: 06_refactored_with_pinocchio.py
-
 import pybullet as p
 import pybullet_data
 import numpy as np
@@ -18,8 +16,7 @@ URDF_PATH = robot_config.URDF_PATH
 IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
 
 # Gains are kept as vectors, as in the original script
-# KP = np.array([100.0, 100.0, 200.0, 450.0, 200.0, 200.0, 0.7])
-KP = np.array([600.0, 600.0, 500.0, 500.0, 550.0, 550.0, 100])
+KP = np.array([100.0, 100.0, 200.0, 450.0, 200.0, 200.0, 0.7])
 KD = np.array([2 * np.sqrt(k) for k in KP]) 
 KI = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) 
 GRAVITY_VECTOR = np.array([0, 0, -9.81])
@@ -129,7 +126,10 @@ def generate_trajectory_ik(q_actual, q_des, total_time=0.1, dt=TIME_STEP):
     return q_des_steps, qd_des_steps, qdd_des_steps
 
 def main():
-    controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
+    try:
+        controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
+    except FileNotFoundError:
+        return
 
     p.connect(p.GUI)
     p.setTimeStep(TIME_STEP)
@@ -138,11 +138,10 @@ def main():
     p.loadURDF("plane.urdf")
     robot_start_pos = [0, 0, 0.5]
     robot_start_orn = p.getQuaternionFromEuler([0, 0, 0])
-    # robot_id = p.loadURDF(URDF_PATH, [0, 0, 0.5], useFixedBase=True)
     robot_id = p.loadURDF(URDF_PATH, robot_start_pos, useFixedBase=False)
     p.createConstraint(
         parentBodyUniqueId=robot_id,
-        parentLinkIndex=-1,  # -1 for the base
+        parentLinkIndex=-1,
         childBodyUniqueId=-1,
         childLinkIndex=-1,
         jointType=p.JOINT_FIXED,
@@ -155,25 +154,26 @@ def main():
     
     joint_indices = get_joint_indices_by_name(robot_id, robot_config.ACTUATED_JOINT_NAMES)
     end_effector_link_index = get_end_effector_link_index(robot_id)
-
-    log_t, log_q_des, log_q_actual = [], [], []
+    
+    # --- MODIFICATION: New lists for Cartesian logging ---
+    log_t = []
+    log_pos_des, log_orn_des = [], []
+    log_pos_actual, log_orn_actual = [], []
     integral_error = np.zeros(7)
 
     print("\n--- Starting Refactored Simulation with Pinocchio Dynamics ---")
     print("Note: This script preserves the original's control loop structure.")
 
     for t in np.arange(0, SIM_DURATION, TIME_STEP):
-        # Get actual state from simulation
         joint_states = p.getJointStates(robot_id, joint_indices)
         q_actual = np.array([state[0] for state in joint_states])
         qd_actual = np.array([state[1] for state in joint_states])
 
-        # Get end-effector pose for IK target (original logic)
+        # This is the target Cartesian pose for the *entire* upcoming trajectory segment
         link_state = p.getLinkState(robot_id, end_effector_link_index, computeForwardKinematics=1)
-        pos, orn = link_state[0], link_state[1] # World position/orientation of the link frame
+        pos_target_segment, orn_target_segment = link_state[0], link_state[1]
 
-        q_desired = compute_inverse_kinematics(robot_id, end_effector_link_index, pos, orn)
-        
+        q_desired = compute_inverse_kinematics(robot_id, end_effector_link_index, pos_target_segment, orn_target_segment)
         q_des_steps, qd_des_steps, qdd_des_steps = generate_trajectory_ik(q_actual, q_desired)
 
         if q_des_steps.shape[0] == 0:
@@ -181,55 +181,115 @@ def main():
             continue
 
         for jj in range(len(q_des_steps)):
-            q_des = q_des_steps[jj]
-            qd_des = qd_des_steps[jj]
-            qdd_des = qdd_des_steps[jj]
+            q_des, qd_des, qdd_des = q_des_steps[jj], qd_des_steps[jj], qdd_des_steps[jj]
 
             tau_ff = controller.compute_feedforward_torque(q_des, qd_des, qdd_des)
             current_joint_states = p.getJointStates(robot_id, joint_indices)
             q_current_actual = np.array([s[0] for s in current_joint_states])
             qd_current_actual = np.array([s[1] for s in current_joint_states])
 
-
             integral_error += (q_des - q_current_actual) * TIME_STEP
             if np.linalg.norm(q_des - q_current_actual) > 0.5: 
                 integral_error *= 0.1  
             
             tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual) + KI * integral_error
-            
-            # tau_fb = KP * (q_des - q_current_actual) + KD * (qd_des - qd_current_actual)
             tau_total = tau_ff + tau_fb
-            # tau_total = tau_ff 
-
             tau_limited = np.clip(tau_total, -MAX_TORQUES, MAX_TORQUES)
             p.setJointMotorControlArray(robot_id, joint_indices, p.TORQUE_CONTROL, forces=tau_limited)
             p.stepSimulation()
-
+            
+            # --- MODIFICATION: Log Cartesian data at each step ---
+            current_ee_state = p.getLinkState(robot_id, end_effector_link_index)
+            pos_actual_current = current_ee_state[0]
+            orn_actual_current = current_ee_state[1]
+            
             log_t.append(p.getPhysicsEngineParameters()['fixedTimeStep'] * (len(log_t) + 1))
-            log_q_des.append(q_des)
-            log_q_actual.append(q_current_actual)
+            log_pos_des.append(pos_target_segment)
+            log_orn_des.append(orn_target_segment)
+            log_pos_actual.append(pos_actual_current)
+            log_orn_actual.append(orn_actual_current)
 
     p.disconnect()
 
+    # --- MODIFICATION: New plotting section for Cartesian error ---
+    print("--- Simulation Complete. Generating Cartesian Error Plots. ---")
+
+    # Convert logs to numpy arrays for vectorized calculations
     array_log_t = np.array(log_t)
-    array_log_q_des = np.array(log_q_des)
-    array_log_q_actual = np.array(log_q_actual)
+    array_pos_des = np.array(log_pos_des)
+    array_pos_actual = np.array(log_pos_actual)
+    array_orn_des = np.array(log_orn_des)
+    array_orn_actual = np.array(log_orn_actual)
 
-    plt.figure(figsize=(12, 2.5 * robot_config.NUM_JOINTS))
-    for i in range(robot_config.NUM_JOINTS):
-        plt.subplot(robot_config.NUM_JOINTS, 2, 2 * i + 1)
-        plt.plot(array_log_t, np.rad2deg(array_log_q_des[:, i]), 'r--', label='Desired')
-        plt.plot(array_log_t, np.rad2deg(array_log_q_actual[:, i]), 'b-', label='Actual')
-        plt.title(f'Joint {i} Tracking'), plt.ylabel('Pos (deg)')
-        plt.legend(), plt.grid(True)
+    # 1. Calculate Translational Error
+    pos_error_vec = array_pos_des - array_pos_actual
+    pos_error_mag = np.linalg.norm(pos_error_vec, axis=1)
 
-        plt.subplot(robot_config.NUM_JOINTS, 2, 2 * i + 2)
-        err = np.rad2deg(array_log_q_des[:, i] - array_log_q_actual[:, i])
-        plt.plot(array_log_t, err, 'g-', label='Error')
-        plt.title(f'Joint {i} Error'), plt.ylabel('Error (deg)')
-        plt.grid(True)
-    plt.tight_layout()
+    # 2. Calculate Angular Error
+    angular_error_mag = []
+    for i in range(len(array_orn_des)):
+        # Calculate the difference quaternion: q_diff = q_des * q_actual_inverse
+        orn_act = array_orn_actual[i]
+        diff_quat = p.getDifferenceQuaternion(orn_act, array_orn_des[i])
+        # Convert the difference quaternion to an axis-angle representation
+        axis, angle = p.getAxisAngleFromQuaternion(diff_quat)
+        angular_error_mag.append(abs(angle))
+    
+    angular_error_mag = np.array(angular_error_mag)
+
+    # --- EDIT: Define a cutoff to remove the initial spike from plots ---
+    CUTOFF_TIME = 1.0 # seconds to ignore at the start
+    
+    # Find the first index in the time array that is greater than or equal to the cutoff
+    if len(array_log_t) > 0 and array_log_t[-1] > CUTOFF_TIME:
+        cutoff_index = np.searchsorted(array_log_t, CUTOFF_TIME)
+    else:
+        cutoff_index = 0 # Plot all data if simulation is too short or empty
+        print("Warning: Simulation duration is less than cutoff time. Plotting all data.")
+
+    # Slice all data arrays to create a "post-settling" view
+    plot_t = array_log_t[cutoff_index:]
+    plot_pos_error_vec = pos_error_vec[cutoff_index:]
+    plot_pos_error_mag = pos_error_mag[cutoff_index:]
+    plot_angular_error_mag = angular_error_mag[cutoff_index:]
+
+    # --- Plotting Translational Error ---
+    plt.figure(figsize=(14, 8))
+    plt.suptitle("End-Effector Translational Error Analysis (Post-Settling)", fontsize=16, weight='bold')
+
+    # Plot 1: Error components (X, Y, Z)
+    plt.subplot(2, 1, 1)
+    plt.plot(plot_t, plot_pos_error_vec[:, 0] * 1000, label='Error X')
+    plt.plot(plot_t, plot_pos_error_vec[:, 1] * 1000, label='Error Y')
+    plt.plot(plot_t, plot_pos_error_vec[:, 2] * 1000, label='Error Z')
+    plt.title("Error Components")
+    plt.ylabel("Error (mm)")
+    plt.grid(True)
+    plt.legend()
+    
+    # Plot 2: Error magnitude
+    plt.subplot(2, 1, 2)
+    plt.plot(plot_t, plot_pos_error_mag * 1000, 'r-', label='Magnitude')
+    plt.title("Error Magnitude")
+    plt.xlabel(f"Time (s) - Starting from t={CUTOFF_TIME}s")
+    plt.ylabel("Error Magnitude (mm)")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.96])
+
+    # --- Plotting Angular Error ---
+    plt.figure(figsize=(14, 5))
+    plt.suptitle("End-Effector Angular Error Analysis (Post-Settling)", fontsize=16, weight='bold')
+    plt.plot(plot_t, np.rad2deg(plot_angular_error_mag), 'g-', label='Angular Error')
+    plt.title("Error Magnitude")
+    plt.xlabel(f"Time (s) - Starting from t={CUTOFF_TIME}s")
+    plt.ylabel("Angular Error (degrees)")
+    plt.grid(True)
+    plt.legend()
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
     plt.show()
+
 
 if __name__ == "__main__":
     main()

@@ -7,7 +7,7 @@ from config import robot_config
 
 class PinocchioRobotDynamics:
     def __init__(self, urdf_path: str):
-        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())            
+        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
         print("\n--- PINOCCHIO MODEL INSPECTION ---")
         print(self.model)
         print(f"Total configuration dimension (model.nq): {self.model.nq}")
@@ -48,7 +48,6 @@ class PinocchioRobotDynamics:
                 [ixz, iyz, izz]
             ])
 
-            # I_com = I_origin + m * skew(c) * skew(c)
             c_skew = pin.skew(c)
             I_com_identified = I_origin_identified + m * (c_skew @ c_skew)
             
@@ -91,6 +90,7 @@ class PinocchioRobotDynamics:
 
         # 3. Set gravity and run the algorithm.
         self.model.gravity.linear = gravity 
+        pin.forwardKinematics(self.model, self.data, q_full, qd_full, qdd_full)
         
         tau_full = pin.rnea(self.model, self.data, q_full, qd_full, qdd_full)
 
@@ -107,10 +107,10 @@ class PinocchioRobotDynamics:
         :return: The 6xN Jacobian matrix.
         """
         q_full = pin.neutral(self.model)
-        q_full[7 : 7 + self.num_actuated_joints] = q
-        
+        q_full[7 : 7 + self.num_actuated_joints] = q        
         ee_frame_id = self.model.getFrameId(robot_config.END_EFFECTOR_FRAME_NAME)
         pin.computeJointJacobians(self.model, self.data, q_full)
+
         full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
         
         actuated_J = full_J[:, 6:]
@@ -167,14 +167,13 @@ class PinocchioRobotDynamics:
         
         actuated_slice = slice(6, 6 + self.num_actuated_joints)
         return C_full[actuated_slice, actuated_slice]
+
     
     def compute_mass_matrix(self, q: np.ndarray) -> np.ndarray:
         """Computes the joint space mass matrix M(q)."""
         q_full = pin.neutral(self.model)
         q_full[7 : 7 + self.num_actuated_joints] = q
-
         pin.crba(self.model, self.data, q_full)
-
         M_full = self.data.M
         
         actuated_slice = slice(6, 6 + self.num_actuated_joints)

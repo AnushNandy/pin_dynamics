@@ -23,7 +23,6 @@ class PinocchioAndFrictionRegressorBuilder:
         print(f"Model nv: {self.model.nv}") 
         print(f"Number of moving bodies in model: {self.num_moving_bodies}")
         print("------------------------------------------\n")
-
         self.nq = self.model.nq
         self.nv = self.model.nv
         self.num_link_params = 10
@@ -35,7 +34,6 @@ class PinocchioAndFrictionRegressorBuilder:
         # self.total_friction_params = self.num_joints * self.num_friction_params
         
         self.rnea_param_col_indices = []
-        
 
         # self.total_params = self.total_link_params + self.total_friction_params
         self.total_params = self.total_link_params
@@ -84,7 +82,6 @@ class PinocchioAndFrictionRegressorBuilder:
             
         # Y_full = np.hstack([Y_rnea, Y_friction])
         Y_full = Y_rnea
-
         
         expected_shape = (self.num_joints, self.total_params)
         if Y_full.shape != expected_shape:

@@ -11,18 +11,18 @@ from config import robot_config
 
 # --- Configuration ---
 URDF_PATH = r"/home/robot/dev/dyn/ArmModels/urdfs/P4/P4_Contra-Angle_right.urdf"
-IDENTIFIED_PARAMS_PATH = r"/home/robot/dev/dyn/src/systemid/identified_params.npz"
+IDENTIFIED_PARAMS_PATH = r"/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
 
 SIM_DURATION = 20.0
 TIME_STEP = 1. / 240.
 GRAVITY_VECTOR = np.array([0, 0, -9.81])
 
-# KP = np.array([600.0, 600.0, 600.0, 600.0, 600.0, 600.0, 400.0])
-KP = np.array([100.0, 100.0, 200.0, 200.0, 80.0, 100.0, 20.0])
-KD = np.array([2 * np.sqrt(k) for k in KP]) # Critically damped
+KP = np.array([100.0, 100.0, 200.0, 450.0, 200.0, 200.0, 0.7])
+KD = np.array([2 * np.sqrt(k) for k in KP]) 
 
 # MAX_TORQUES = np.array([200.0, 200.0, 150.0, 150.0, 100.0, 80.0, 80.0])
-MAX_TORQUES = np.array([140, 140, 51, 100, 51, 51, 11])
+# MAX_TORQUES = np.array([140, 140, 51, 100, 51, 51, 7.7])
+MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
 
 JOINT_AMPLITUDES = np.deg2rad([15, 20, 12, 18, 10, 8, 0])
 JOINT_FREQUENCIES = np.array([0.2, 0.25, 0.2, 0.3, 0.15, 0.2, 0.0])
@@ -214,7 +214,8 @@ def main():
     plt.xlabel('Time (s)')
     plt.tight_layout()
     plt.suptitle('Controller Performance Comparison using Identified Pinocchio Model', fontsize=16, y=1.02)
-    plt.show()
+    # plt.show()
+    plt.savefig('./tests/Fig_02_errplot.png')
 
 
 if __name__ == "__main__":
