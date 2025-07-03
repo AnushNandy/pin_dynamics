@@ -81,10 +81,43 @@ def evaluate_trajectory(joint_trajectories, t, j):
 def main():
     controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
     robot = RobotWrapper.BuildFromURDF(URDF_PATH, package_dirs=[], root_joint=None)
+    model = robot.model
+    data = robot.data
     viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
     viz.initViewer()
     viz.loadViewerModel()
     print("Meshcat initialized at http://127.0.0.1:7000")
+
+    # --- Print joint information like in the main function ---
+    print(f"Total configuration dimension (model.nq): {model.nq}")
+    print(f"Total velocity dimension (model.nv): {model.nv}")
+    print(f"Number of joints in model: {model.njoints}")
+    print("------------------------------------")
+
+    print("Joint Names and Indices:")
+    actuated_joint_names = robot_config.ACTUATED_JOINT_NAMES
+    actuated_joint_ids = [model.getJointId(name) for name in actuated_joint_names]
+    
+    # Get detailed joint information
+    actuated_joint_info = []
+    for i, joint_id in enumerate(actuated_joint_ids):
+        joint = model.joints[joint_id]
+        joint_name = model.names[joint_id]
+        q_idx = joint.idx_q
+        nq = joint.nq  # Number of configuration variables for this joint
+        nv = joint.nv  # Number of velocity variables for this joint
+        
+        actuated_joint_info.append({
+            'id': joint_id,
+            'name': joint_name,
+            'q_idx': q_idx,
+            'nq': nq,
+            'nv': nv
+        })
+        
+        print(f"Joint {joint_id} ({joint_name}) -> q_idx: {q_idx}, nq: {nq}, nv: {nv}")
+    
+    print(f"Model nq: {model.nq}, nv: {model.nv}")
 
     time_vec = np.arange(0, SIM_DURATION, TIME_STEP)
     waypoints = [
@@ -115,19 +148,40 @@ def main():
         tau_fb = KP * (q_des - q_actual) + KD * (qd_des - qd_actual)
         tau_cmd = tau_ff + tau_fb
 
-        q_full = pin.neutral(robot.model)
-        q_full[7:] = q_actual
+        # --- IMPROVED VISUALIZATION (like in main function) ---
+        # For joints with nq=2, nv=1, we need to use pin.integrate to properly
+        # map from velocity space to configuration space
+        
+        # Start with neutral configuration
+        q_full = pin.neutral(model)
+        
+        # Create velocity vector - each actuated joint has nv=1
+        v_full = np.zeros(model.nv)
+        v_full[:NUM_JOINTS] = q_actual  # Assuming actuated joints come first in velocity space
+        
+        # Use Pinocchio's integrate function to properly map velocities to configuration
+        q_full = pin.integrate(model, q_full, v_full)
+        
+        # Debug: Print some values occasionally
+        if int(t * 1000) % 5000 == 0:  # Every 5 seconds
+            print(f"t={t:.2f}: q_actual[0]={q_actual[0]:.3f}, q_full[0:14]={q_full[:14]}")
+        
+        # Update visualization
         viz.display(q_full)
 
         log_q_des.append(q_des)
         log_q_actual.append(q_actual)
-
         log_tau_ff.append(tau_ff)
         log_tau_fb.append(tau_fb)
         log_tau_cmd.append(tau_cmd)
 
+        # Add a small delay to make visualization smoother
         if int(t * 1000) % 10 == 0:
             time.sleep(0.0001)
+
+        if int(t) % 5 == 0 and abs(t - int(t)) < TIME_STEP / 2:
+            print(f"Simulation time: {int(t)}s / {int(SIM_DURATION)}s")
+            print(f"Joint_0 pos: {q_actual[0]:.3f}")
 
     # --- Plot ---
     log_q_des = np.array(log_q_des)
