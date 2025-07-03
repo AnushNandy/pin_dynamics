@@ -215,7 +215,7 @@ def main():
     plt.tight_layout()
     plt.suptitle('Controller Performance Comparison using Identified Pinocchio Model', fontsize=16, y=1.02)
     # plt.show()
-    plt.savefig('./tests/Fig_02_errplot.png')
+    plt.savefig('../test/Fig_02_errplot.png')
 
 
 if __name__ == "__main__":

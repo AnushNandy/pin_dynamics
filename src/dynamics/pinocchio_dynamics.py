@@ -28,7 +28,7 @@ class PinocchioRobotDynamics:
         """
         num_link_params = 10
         num_moving_bodies = self.model.nbodies - 1
-
+        
         for i in range(num_moving_bodies):
             body_idx = i + 1
             

@@ -26,7 +26,6 @@ class PinocchioAndFrictionRegressorBuilder:
         self.nq = self.model.nq
         self.nv = self.model.nv
         self.num_link_params = 10
-        # self.total_link_params = self.num_joints * self.num_link_params
         self.total_link_params = self.num_moving_bodies * self.num_link_params
         
         # 2 friction parameters (Viscous, Coulomb) per joint
@@ -63,9 +62,9 @@ class PinocchioAndFrictionRegressorBuilder:
         # Only care about the rows corresponding to the actuated joint torques.
         # last `num_joints` rows of of regressor
         actuated_torque_rows = slice(6, 6 + self.num_joints)
+
         num_rnea_cols = self.num_moving_bodies * self.num_link_params
         actuated_param_cols = slice(0, num_rnea_cols)
-
         Y_rnea = full_rnea_regressor[actuated_torque_rows, actuated_param_cols]
 
         # --- 3. Append Friction Parameter Columns ---

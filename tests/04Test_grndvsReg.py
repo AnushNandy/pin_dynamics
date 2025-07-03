@@ -8,6 +8,8 @@ from config import robot_config
 
 URDF_PATH = robot_config.URDF_PATH
 IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
+# IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_robust.npz"
+
 NUM_JOINTS = robot_config.NUM_JOINTS
 
 def get_ground_truth_params(model: pin.Model) -> np.ndarray:
