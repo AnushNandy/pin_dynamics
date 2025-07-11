@@ -9,6 +9,7 @@ from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics
 from src.systemid.pinocchio_friction_regressor import smooth_sign
 from config import robot_config 
 import pinocchio as pin
+# import meshcat.animation as animation
 from pinocchio.visualize import MeshcatVisualizer
 from pinocchio.robot_wrapper import RobotWrapper
 
@@ -18,8 +19,10 @@ TIME_STEP = 1. / 240.
 URDF_PATH = robot_config.URDF_PATH
 IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
 NUM_JOINTS = robot_config.NUM_JOINTS
-MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
-KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
+MAX_TORQUES = robot_config.MAX_TORQUES
+# KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
+# KD = np.array([2 * np.sqrt(k) for k in KP])
+KP = np.array([100.0, 100.0, 200.0])
 KD = np.array([2 * np.sqrt(k) for k in KP])
 
 # --- Controller Class ---
@@ -86,6 +89,7 @@ def main():
     viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
     viz.initViewer()
     viz.loadViewerModel()
+    # anim = animation.Animation(default_framerate=30)
     print("Meshcat initialized at http://127.0.0.1:7000")
 
     # --- Print joint information like in the main function ---

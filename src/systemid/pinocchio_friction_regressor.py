@@ -27,6 +27,17 @@ class PinocchioAndFrictionRegressorBuilder:
         self.nv = self.model.nv
         self.num_link_params = 10
         self.total_link_params = self.num_moving_bodies * self.num_link_params
+
+        if self.model.joints[1].shortname() == "JointModelFreeFlyer":
+            self.idx_q_actuated_start = self.model.joints[1].nq
+            self.idx_v_actuated_start = self.model.joints[1].nv
+        else:
+            # Fallback for fixed-base or other models: actuated joints start at index 0.
+            self.idx_q_actuated_start = 0
+            self.idx_v_actuated_start = 0
+        
+        print(f"Determined actuated joint start index in q: {self.idx_q_actuated_start}") 
+        print(f"Determined actuated joint start index in v: {self.idx_v_actuated_start}")
         
         # 2 friction parameters (Viscous, Coulomb) per joint
         # self.num_friction_params = 2
@@ -50,9 +61,15 @@ class PinocchioAndFrictionRegressorBuilder:
         qdd_full = np.zeros(self.nv)     
 
         # Place the actuated joint values into the correct slice.
-        q_full[7 : 7 + self.num_joints] = q
-        qd_full[6 : 6 + self.num_joints] = qd
-        qdd_full[6 : 6 + self.num_joints] = qdd
+        # q_full[7 : 7 + self.num_joints] = q
+        # qd_full[6 : 6 + self.num_joints] = qd
+        # qdd_full[6 : 6 + self.num_joints] = qdd
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        a_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_joints] = q
+        qd_full[v_start : v_start + self.num_joints] = qd
+        qdd_full[a_start : a_start + self.num_joints] = qdd 
         self.model.gravity.linear = gravity
 
         # --- 2. Compute Rigid Body Parameter Regressor ---
@@ -61,7 +78,8 @@ class PinocchioAndFrictionRegressorBuilder:
         # The output regressor has shape (nv, num_bodies * 10).
         # Only care about the rows corresponding to the actuated joint torques.
         # last `num_joints` rows of of regressor
-        actuated_torque_rows = slice(6, 6 + self.num_joints)
+        # actuated_torque_rows = slice(6, 6 + self.num_joints)
+        actuated_torque_rows = slice(v_start, v_start + self.num_joints)
 
         num_rnea_cols = self.num_moving_bodies * self.num_link_params
         actuated_param_cols = slice(0, num_rnea_cols)

@@ -15,7 +15,8 @@ SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
 SIM_DURATION = 100.0 #150 500
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
-MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
+# MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
+MAX_TORQUES = robot_config.MAX_TORQUES
 
 # joint_limits = [
 #     (-2.5, 2.5), (-2.3, 2.3), (-2.2, 2.2),
@@ -27,7 +28,9 @@ MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
 # high_bounds = np.array([limit[1] for limit in joint_limits])
 
 # --- PD Controller Gains ---
-KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
+# KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
+# KD = np.array([2 * np.sqrt(k) for k in KP])
+KP = np.array([100.0, 100.0, 200.0])
 KD = np.array([2 * np.sqrt(k) for k in KP])
 
 def setup_meshcat_visualization(urdf_path: str):
@@ -44,53 +47,38 @@ def setup_meshcat_visualization(urdf_path: str):
     
     return robot.model, robot.data, viz
 
-# def generate_minimum_jerk_trajectory(t, duration_per_target=6.0):
-#     """Generates a minimum jerk trajectory between random targets."""
-#     target_idx = int(t / duration_per_target)
-#     t_local = t % duration_per_target
-    
-#     np.random.seed(target_idx)
-#     # q_start = np.random.uniform(-1.5, 1.5, NUM_JOINTS)
-#     q_start = np.random.uniform(low=low_bounds, high=high_bounds, size=NUM_JOINTS)
-#     np.random.seed(target_idx + 1000)
-#     # q_end = np.random.uniform(-1.5, 1.5, NUM_JOINTS)
-#     q_end = np.random.uniform(low=low_bounds, high=high_bounds, size=NUM_JOINTS)
-
-#     T = duration_per_target
-#     tau = t_local / T
-    
-#     # Quintic polynomial:
-#     s = 10*tau**3 - 15*tau**4 + 6*tau**5
-#     s_dot = (30*tau**2 - 60*tau**3 + 30*tau**4) / T
-#     s_ddot = (60*tau - 180*tau**2 + 120*tau**3) / (T**2)
-    
-#     q_des = q_start + (q_end - q_start) * s
-#     qd_des = (q_end - q_start) * s_dot
-#     qdd_des = (q_end - q_start) * s_ddot
-    
-#     return q_des, qd_des, qdd_des
-
 def generate_fourier_series_trajectory(t, num_harmonics = 5, base_freq = 0.5): # 5 , 0.5 (or 5 and 2)
     np.random.seed(42)
 
+    # joint_amplitudes = np.array([
+    #         0.7,   # Joint 1
+    #         0.7,   # Joint 2
+    #         0.3,   # Joint 3
+    #         0.3,   # Joint 4
+    #         0.3,  # Joint 5
+    #         0.3,  # Joint 6
+    #         0.08   # Joint 7
+    #     ])
+    
+    # phi = np.array([
+    #     0,        # Joint 1
+    #     0.2*np.pi,# Joint 2
+    #     0.4*np.pi,# Joint 3
+    #     0.6*np.pi,# Joint 4
+    #     0.8*np.pi,# Joint 5
+    #     np.pi,# Joint 6
+    #     np.pi# Joint 7
+    # ])
     joint_amplitudes = np.array([
-            0.7,   # Joint 1
             0.7,   # Joint 2
             0.3,   # Joint 3
             0.3,   # Joint 4
-            0.3,  # Joint 5
-            0.3,  # Joint 6
-            0.08   # Joint 7
         ])
     
     phi = np.array([
         0,        # Joint 1
         0.2*np.pi,# Joint 2
         0.4*np.pi,# Joint 3
-        0.6*np.pi,# Joint 4
-        0.8*np.pi,# Joint 5
-        np.pi,# Joint 6
-        np.pi# Joint 7
     ])
 
     # A = np.random.uniform(-0.5, 0.5, (NUM_JOINTS, num_harmonics)) #0.5
@@ -156,8 +144,8 @@ def main():
         joint = model.joints[joint_id]
         joint_name = model.names[joint_id]
         q_idx = joint.idx_q
-        nq = joint.nq  # Number of configuration variables for this joint
-        nv = joint.nv  # Number of velocity variables for this joint
+        nq = joint.nq 
+        nv = joint.nv 
         
         actuated_joint_info.append({
             'id': joint_id,
@@ -201,7 +189,7 @@ def main():
         tau_limited = np.clip(tau_cmd, -MAX_TORQUES, MAX_TORQUES)
         log_tau_limited.append(tau_limited)
 
-        # --- IV. CORRECTED VISUALIZATION ---
+        # --- IV. VISUALIZATION ---
         # For joints with nq=2, nv=1, we need to use pin.integrate to properly
         # map from velocity space to configuration space
         

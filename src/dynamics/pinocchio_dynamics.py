@@ -21,6 +21,17 @@ class PinocchioRobotDynamics:
         self.nv = self.model.nv
 
         self.num_actuated_joints = robot_config.NUM_JOINTS
+        
+        if self.model.joints[1].shortname() == "JointModelFreeFlyer":
+            self.idx_q_actuated_start = self.model.joints[1].nq
+            self.idx_v_actuated_start = self.model.joints[1].nv
+        else:
+            # Fallback for fixed-base or other models: actuated joints start at index 0.
+            self.idx_q_actuated_start = 0
+            self.idx_v_actuated_start = 0
+        
+        print(f"Determined actuated joint start index in q: {self.idx_q_actuated_start}") # Should be 7
+        print(f"Determined actuated joint start index in v: {self.idx_v_actuated_start}") # Should be 6
 
     def set_parameters_from_vector(self, P_vec: np.ndarray):
         """
@@ -84,9 +95,15 @@ class PinocchioRobotDynamics:
         # 2. Place the actuated joint values into the correct slice.
         #      q_full[7 : 7 + 7]  (indices 7 to 13)
         #      qd_full[6 : 6 + 7] (indices 6 to 12)
-        q_full[7 : 7 + self.num_actuated_joints] = q
-        qd_full[6 : 6 + self.num_actuated_joints] = qd
-        qdd_full[6 : 6 + self.num_actuated_joints] = qdd
+        # q_full[7 : 7 + self.num_actuated_joints] = q
+        # qd_full[6 : 6 + self.num_actuated_joints] = qd
+        # qdd_full[6 : 6 + self.num_actuated_joints] = qdd
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        
+        q_full[q_start : q_start + self.num_actuated_joints] = q
+        qd_full[v_start : v_start + self.num_actuated_joints] = qd
+        qdd_full[v_start : v_start + self.num_actuated_joints] = qdd
 
         # 3. Set gravity and run the algorithm.
         self.model.gravity.linear = gravity 
@@ -95,7 +112,8 @@ class PinocchioRobotDynamics:
         tau_full = pin.rnea(self.model, self.data, q_full, qd_full, qdd_full)
 
         # 4. Return the torques for the actuated joints.
-        return tau_full[6 : 6 + self.num_actuated_joints]
+        # return tau_full[6 : 6 + self.num_actuated_joints]
+        return tau_full[v_start: v_start + self.num_actuated_joints]
     
     def compute_jacobian(self, q: np.ndarray) -> np.ndarray:
         """
@@ -107,13 +125,17 @@ class PinocchioRobotDynamics:
         :return: The 6xN Jacobian matrix.
         """
         q_full = pin.neutral(self.model)
-        q_full[7 : 7 + self.num_actuated_joints] = q        
+        # q_full[7 : 7 + self.num_actuated_joints] = q
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_actuated_joints] = q        
         ee_frame_id = self.model.getFrameId(robot_config.END_EFFECTOR_FRAME_NAME)
         pin.computeJointJacobians(self.model, self.data, q_full)
 
         full_J = pin.getFrameJacobian(self.model, self.data, ee_frame_id, pin.ReferenceFrame.LOCAL_WORLD_ALIGNED)
         
-        actuated_J = full_J[:, 6:]
+        # actuated_J = full_J[:, 6:]
+        actuated_J = full_J[:, v_start : v_start + self.num_actuated_joints]
         
         return actuated_J
     
@@ -146,10 +168,14 @@ class PinocchioRobotDynamics:
         Computes the gravity compensation torque vector g(q).
         """
         q_full = pin.neutral(self.model)
-        q_full[7 : 7 + self.num_actuated_joints] = q        
+        # q_full[7 : 7 + self.num_actuated_joints] = q 
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_actuated_joints] = q 
         g_full = pin.computeGeneralizedGravity(self.model, self.data, q_full)
 
-        return g_full[6 : 6 + self.num_actuated_joints]
+        # return g_full[6 : 6 + self.num_actuated_joints]
+        return g_full[v_start: v_start + self.num_actuated_joints]
     
     def compute_coriolis_matrix(self, q: np.ndarray, qd: np.ndarray) -> np.ndarray:
         """
@@ -158,34 +184,48 @@ class PinocchioRobotDynamics:
         """
         q_full = pin.neutral(self.model)
         qd_full = np.zeros(self.nv)
-        q_full[7 : 7 + self.num_actuated_joints] = q
-        qd_full[6 : 6 + self.num_actuated_joints] = qd
+        # q_full[7 : 7 + self.num_actuated_joints] = q
+        # qd_full[6 : 6 + self.num_actuated_joints] = qd
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_actuated_joints] = q 
+        qd_full[v_start : v_start + self.num_actuated_joints] = qd
 
         pin.computeCoriolisMatrix(self.model, self.data, q_full, qd_full)
         
         C_full = self.data.C
         
-        actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        # actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        actuated_slice = slice(v_start, v_start+ self.num_actuated_joints)
         return C_full[actuated_slice, actuated_slice]
 
     
     def compute_mass_matrix(self, q: np.ndarray) -> np.ndarray:
         """Computes the joint space mass matrix M(q)."""
         q_full = pin.neutral(self.model)
-        q_full[7 : 7 + self.num_actuated_joints] = q
+        # q_full[7 : 7 + self.num_actuated_joints] = q
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_actuated_joints] = q
         pin.crba(self.model, self.data, q_full)
         M_full = self.data.M
         
-        actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        # actuated_slice = slice(6, 6 + self.num_actuated_joints)
+        actuated_slice = slice(v_start, v_start+ self.num_actuated_joints)
         return M_full[actuated_slice, actuated_slice]
 
     def compute_nonlinear_effects(self, q: np.ndarray, qd: np.ndarray) -> np.ndarray:
         """Computes the nonlinear effects vector n(q, qd) = C(q,qd)qd + g(q)."""
         q_full = pin.neutral(self.model)
         qd_full = np.zeros(self.nv)
-        q_full[7 : 7 + self.num_actuated_joints] = q
-        qd_full[6 : 6 + self.num_actuated_joints] = qd
+        # q_full[7 : 7 + self.num_actuated_joints] = q
+        # qd_full[6 : 6 + self.num_actuated_joints] = qd
+        q_start = self.idx_q_actuated_start
+        v_start = self.idx_v_actuated_start
+        q_full[q_start : q_start + self.num_actuated_joints] = q 
+        qd_full[v_start : v_start + self.num_actuated_joints] = qd
         
         n_full = pin.nonLinearEffects(self.model, self.data, q_full, qd_full)
         
-        return n_full[6 : 6 + self.num_actuated_joints]
+        # return n_full[6 : 6 + self.num_actuated_joints]
+        return n_full[v_start : v_start + self.num_actuated_joints]
