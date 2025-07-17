@@ -4,10 +4,12 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from config import robot_config
+from pinocchio.robot_wrapper import RobotWrapper
 
 class PinocchioRobotDynamics:
     def __init__(self, urdf_path: str):
         self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
+        # self.robot = RobotWrapper.BuildFromURDF(urdf, package_dirs=[], root_joint=None)
         print("\n--- PINOCCHIO MODEL INSPECTION ---")
         print(self.model)
         print(f"Total configuration dimension (model.nq): {self.model.nq}")

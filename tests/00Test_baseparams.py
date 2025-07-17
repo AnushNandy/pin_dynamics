@@ -13,11 +13,10 @@ from pinocchio.visualize import MeshcatVisualizer
 from pinocchio.robot_wrapper import RobotWrapper
 
 # --- Config ---
-SIM_DURATION = 240
-# SIM_DURATION = 50
+SIM_DURATION = 6
 TIME_STEP = 1. / 240.
 URDF_PATH = robot_config.URDF_PATH
-IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_params_pybullet.npz"
+IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
 NUM_JOINTS = robot_config.NUM_JOINTS
 MAX_TORQUES = robot_config.MAX_TORQUES
 # KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
@@ -25,15 +24,28 @@ MAX_TORQUES = robot_config.MAX_TORQUES
 KP = np.array([100.0, 100.0, 200.0])
 KD = np.array([2 * np.sqrt(k) for k in KP])
 
-# --- Controller Class ---
 class PinocchioFeedforwardController:
     def __init__(self, urdf_path: str, identified_params_path: str):
         print("--- Initializing Pinocchio Feedforward Controller ---")
         self.model_dynamics = PinocchioRobotDynamics(urdf_path)
         self.num_joints = self.model_dynamics.num_actuated_joints
         params = np.load(identified_params_path)
-        rnea_params = params['P'][:(self.model_dynamics.model.nbodies - 1) * 10]
-        self.model_dynamics.set_parameters_from_vector(rnea_params)
+        base_params = params['base_params']
+        base_indices = params['base_indices']
+        
+        print(f"Loaded {len(base_params)} base parameters")
+        print(f"Base parameter indices: {base_indices}")
+    
+        num_moving_bodies = self.model_dynamics.model.nbodies - 1
+        total_link_params = num_moving_bodies * 10  
+        full_params = np.zeros(total_link_params)
+        for i, idx in enumerate(base_indices):
+            if idx < total_link_params: 
+                full_params[idx] = base_params[i]
+        
+        print(f"Reconstructed full parameter vector with {np.sum(full_params != 0)} non-zero elements")
+        
+        self.model_dynamics.set_parameters_from_vector(full_params)
         print("-----------------------------------------------------")
 
     def compute_feedforward_torque(self, q, qd, qdd):
@@ -102,7 +114,6 @@ def main():
         raise RuntimeError("Model mismatch between controller and visualizer!")
     print("Models are consistent. Proceeding.\n")
 
-    # Initialize Meshcat Visualizer
     viz = MeshcatVisualizer(robot_for_viz.model, robot_for_viz.collision_model, robot_for_viz.visual_model)
     viz.initViewer()
     viz.loadViewerModel()
@@ -119,15 +130,13 @@ def main():
         np.deg2rad([-40] * NUM_JOINTS),
         np.zeros(NUM_JOINTS),
     ]
-    durations = [40, 40, 40, 40, 40, 40]
+    durations = [1, 1, 1, 1, 1, 1]
     trajectories = generate_segmented_trajectory(waypoints, durations)
 
     # --- 3. Simulation Loop ---
     # Prepare lists to log data for plotting
     log_q_des, log_q_actual, log_tau_ff, log_tau_fb, log_tau_cmd = [], [], [], [], []
 
-    # Get the starting index for actuated joints in the full configuration vector `q`
-    # For a FreeFlyer, the first joint is the base, so actuated joints start after it.
     q_actuated_start_idx = model.joints[1].nq
 
     print("\n--- Starting Simulation Loop ---")
@@ -151,11 +160,6 @@ def main():
         # Feedback torque would be zero in this ideal case, but we calculate for completeness
         tau_fb = KP * (q_des - q_actual) + KD * (qd_des - qd_actual)
         tau_cmd = tau_ff + tau_fb
-
-        # ### CRITICAL FIX 2: Update visualization for a floating-base model ###
-        # A floating base robot's configuration q_full has nq elements.
-        # The first 7 describe the base pose (x,y,z, qx,qy,qz,qw).
-        # The remaining elements are the joint angles.
         
         # 1. Start with the neutral configuration (base at origin, joints at zero).
         q_full_for_viz = pin.neutral(model)
@@ -187,7 +191,6 @@ def main():
     log_tau_fb = np.array(log_tau_fb)
     log_tau_cmd = np.array(log_tau_cmd)
 
-    # Plot Torque Components
     fig, axs = plt.subplots(NUM_JOINTS, 1, figsize=(12, 3 * NUM_JOINTS), sharex=True)
     fig.suptitle("Torque Components", fontsize=18)
     for j in range(NUM_JOINTS):
@@ -200,7 +203,6 @@ def main():
     axs[-1].set_xlabel("Time (s)")
     plt.tight_layout(rect=[0, 0, 1, 0.96])
 
-    # Plot Position Tracking and Error
     plt.figure(figsize=(14, 4 * NUM_JOINTS))
     for i in range(NUM_JOINTS):
         plt.subplot(NUM_JOINTS, 2, 2 * i + 1)

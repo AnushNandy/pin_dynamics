@@ -9,13 +9,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from config import robot_config
 from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics
 
-# --- Constants and Configuration ---
 URDF_PATH = robot_config.URDF_PATH
 SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
-SIM_DURATION = 100.0 #150 500
+SIM_DURATION = 500.0 #150 500
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
-# MAX_TORQUES = np.array([140, 140, 51, 51, 14, 14, 7.7])
 MAX_TORQUES = robot_config.MAX_TORQUES
 
 # joint_limits = [
@@ -35,10 +33,7 @@ KD = np.array([2 * np.sqrt(k) for k in KP])
 
 def setup_meshcat_visualization(urdf_path: str):
     """Initializes Meshcat visualization using Pinocchio's high-level MeshcatVisualizer."""
-    # Create robot wrapper (loads model, visuals, and collisions)
     robot = RobotWrapper.BuildFromURDF(urdf_path, package_dirs=[], root_joint=None)
-
-    # Use built-in Meshcat visualizer
     viz = MeshcatVisualizer(robot.model, robot.collision_model, robot.visual_model)
     viz.initViewer()
     viz.loadViewerModel()
@@ -47,7 +42,7 @@ def setup_meshcat_visualization(urdf_path: str):
     
     return robot.model, robot.data, viz
 
-def generate_fourier_series_trajectory(t, num_harmonics = 5, base_freq = 0.5): # 5 , 0.5 (or 5 and 2)
+def generate_fourier_series_trajectory(t, num_harmonics = 8, base_freq = 0.15): # 5 , 0.5 
     np.random.seed(42)
 
     # joint_amplitudes = np.array([
@@ -70,24 +65,22 @@ def generate_fourier_series_trajectory(t, num_harmonics = 5, base_freq = 0.5): #
     #     np.pi# Joint 7
     # ])
     joint_amplitudes = np.array([
-            0.7,   # Joint 2
-            0.3,   # Joint 3
-            0.3,   # Joint 4
+            1.2,   # Joint 2
+            1.8,   # Joint 3
+            0.5,   # Joint 4
         ])
     
     phi = np.array([
         0,        # Joint 1
         0.2*np.pi,# Joint 2
-        0.4*np.pi,# Joint 3
+        0.8*np.pi,# Joint 3
     ])
 
-    # A = np.random.uniform(-0.5, 0.5, (NUM_JOINTS, num_harmonics)) #0.5
     A = np.zeros((NUM_JOINTS, num_harmonics))
     for joint_idx in range(NUM_JOINTS):
         A[joint_idx, :] = np.random.uniform(-joint_amplitudes[joint_idx], 
                                           joint_amplitudes[joint_idx], 
                                           num_harmonics)
-    # PHI = np.random.uniform(0, 2 * np.pi, (NUM_JOINTS, num_harmonics))
     PHI = np.zeros((NUM_JOINTS, num_harmonics))
     for joint_idx in range(NUM_JOINTS):
         PHI[joint_idx, :] = np.random.uniform(-phi[joint_idx], 
@@ -137,8 +130,7 @@ def main():
     print("Joint Names and Indices:")
     actuated_joint_names = robot_config.ACTUATED_JOINT_NAMES
     actuated_joint_ids = [model.getJointId(name) for name in actuated_joint_names]
-    
-    # Get detailed joint information
+
     actuated_joint_info = []
     for i, joint_id in enumerate(actuated_joint_ids):
         joint = model.joints[joint_id]
@@ -192,25 +184,21 @@ def main():
         # --- IV. VISUALIZATION ---
         # For joints with nq=2, nv=1, we need to use pin.integrate to properly
         # map from velocity space to configuration space
-        
-        # Start with neutral configuration
+
         q_full = pin.neutral(model)
         
-        # Create velocity vector - each actuated joint has nv=1
+        # Velocity vector - each actuated joint has nv=1
         v_full = np.zeros(model.nv)
-        v_full[:NUM_JOINTS] = q_actual  # Assuming actuated joints come first in velocity space
+        v_full[:NUM_JOINTS] = q_actual  
         
         # Use Pinocchio's integrate function to properly map velocities to configuration
         q_full = pin.integrate(model, q_full, v_full)
-        
-        # Debug: Print some values occasionally
-        if int(t * 1000) % 5000 == 0:  # Every 5 seconds
+ 
+        if int(t * 1000) % 5000 == 0: 
             print(f"t={t:.2f}: q_actual[0]={q_actual[0]:.3f}, q_full[0:14]={q_full[:14]}")
-        
-        # Update visualization
+
         vis_pin.display(q_full)
-        
-        # Add a small delay to make visualization smoother
+
         if int(t * 1000) % 10 == 0:  
             time.sleep(0.0001)
 
@@ -232,8 +220,6 @@ def main():
     log_tau_fb = np.array(log_tau_fb)
     log_tau_cmd = np.array(log_tau_cmd)
     log_tau_limited = np.array(log_tau_limited)
-
-    # Rest of the plotting and saving code remains the same...
     time2 = np.arange(0, len(log_tau_ff)) * TIME_STEP
     num_joints = log_tau_ff.shape[1]
 
@@ -251,8 +237,6 @@ def main():
     axs[-1].set_xlabel("Time [s]")
     plt.tight_layout(rect=[0, 0.03, 1, 0.96])
     plt.show()
-
-    # Filtering acceleration data
     fs = 1. / TIME_STEP
     cutoff_freq = 15.0  
     nyquist_freq = 0.5 * fs
