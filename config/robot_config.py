@@ -117,6 +117,7 @@ URDF_PATH = r"/home/robot/dev/dyn/3DOF/urdf/3DOF Yomi Assembly_Anush.urdf"
 MAX_TORQUES = np.array([140, 51, 51])
 
 LINK_NAMES_IN_KDL_ORDER = [
+    "world",
     "base_link",
     "Link1",
     "Link2",

@@ -1,5 +1,3 @@
-import pybullet as p
-import pybullet_data
 import numpy as np
 import os, time
 import sys
@@ -11,9 +9,10 @@ from config import robot_config
 import pinocchio as pin
 from pinocchio.visualize import MeshcatVisualizer
 from pinocchio.robot_wrapper import RobotWrapper
+from utils.trajectories import generate_chirp_trajectory, generate_aggressive_trajectory, generate_bang_bang_trajectory, generate_step_trajectory
 
 # --- Config ---
-SIM_DURATION = 6
+SIM_DURATION = 3
 TIME_STEP = 1. / 240.
 URDF_PATH = robot_config.URDF_PATH
 IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
@@ -50,7 +49,7 @@ class PinocchioFeedforwardController:
 
     def compute_feedforward_torque(self, q, qd, qdd):
         return self.model_dynamics.compute_rnea(q, qd, qdd)
-
+    
 # --- Trajectory Generation Utilities ---
 def generate_quintic_spline(q0, qf, qd0, qdf, qdd0, qddf, T):
     M = np.array([
@@ -99,8 +98,7 @@ def main():
     controller = PinocchioFeedforwardController(URDF_PATH, IDENTIFIED_PARAMS_PATH)
 
     robot_for_viz = RobotWrapper.BuildFromURDF(URDF_PATH, 
-                                               package_dirs=[], 
-                                               root_joint=pin.JointModelFreeFlyer())
+                                               package_dirs=[])
     
     model = robot_for_viz.model
     data = robot_for_viz.data
@@ -121,23 +119,48 @@ def main():
 
     # --- 2. Trajectory Generation ---
     time_vec = np.arange(0, SIM_DURATION, TIME_STEP)
-    waypoints = [
-        np.zeros(NUM_JOINTS),
-        np.deg2rad([40] * NUM_JOINTS),
-        np.deg2rad([60] * NUM_JOINTS),
-        np.deg2rad([30] * NUM_JOINTS),
-        np.deg2rad([-30] * NUM_JOINTS),
-        np.deg2rad([-40] * NUM_JOINTS),
-        np.zeros(NUM_JOINTS),
-    ]
-    durations = [1, 1, 1, 1, 1, 1]
-    trajectories = generate_segmented_trajectory(waypoints, durations)
+    TRAJECTORY_TYPE = "waypoint" 
+
+    if TRAJECTORY_TYPE == "aggressive":
+        trajectory_func = generate_aggressive_trajectory(time_vec, NUM_JOINTS)
+    elif TRAJECTORY_TYPE == "step":
+        trajectory_func = generate_step_trajectory(time_vec, NUM_JOINTS)
+    elif TRAJECTORY_TYPE == "chirp":
+        trajectory_func = generate_chirp_trajectory(time_vec, NUM_JOINTS)
+    elif TRAJECTORY_TYPE == "bang_bang":
+        trajectory_func = generate_bang_bang_trajectory(time_vec, NUM_JOINTS)
+    elif TRAJECTORY_TYPE == "waypoint":
+        waypoints = [
+            np.zeros(NUM_JOINTS),
+            np.deg2rad([40] * NUM_JOINTS),
+            np.deg2rad([60] * NUM_JOINTS),
+            np.deg2rad([30] * NUM_JOINTS),
+            np.deg2rad([-30] * NUM_JOINTS),
+            np.deg2rad([-40] * NUM_JOINTS),
+            np.zeros(NUM_JOINTS),
+        ]
+        # durations = [3, 3, 3, 3, 3, 3]
+        durations = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+        trajectories = generate_segmented_trajectory(waypoints, durations)
+        
+        # Wrapper function to match the interface
+        def trajectory_func(t):
+            q_des = np.zeros(NUM_JOINTS)
+            qd_des = np.zeros(NUM_JOINTS)
+            qdd_des = np.zeros(NUM_JOINTS)
+            for j in range(NUM_JOINTS):
+                q_des[j], qd_des[j], qdd_des[j] = evaluate_trajectory(trajectories, t, j)
+            return q_des, qd_des, qdd_des
+
+    print(f"Using {TRAJECTORY_TYPE} trajectory")
+    trajectory_func = generate_aggressive_trajectory(time_vec, NUM_JOINTS)
 
     # --- 3. Simulation Loop ---
     # Prepare lists to log data for plotting
     log_q_des, log_q_actual, log_tau_ff, log_tau_fb, log_tau_cmd = [], [], [], [], []
 
-    q_actuated_start_idx = model.joints[1].nq
+    # q_actuated_start_idx = model.joints[1].nq
+    q_actuated_start_idx = 0
 
     print("\n--- Starting Simulation Loop ---")
     for t in time_vec:
@@ -145,6 +168,7 @@ def main():
         q_des = np.zeros(NUM_JOINTS)
         qd_des = np.zeros(NUM_JOINTS)
         qdd_des = np.zeros(NUM_JOINTS)
+        # q_des, qd_des, qdd_des = trajectory_func(t)
         for j in range(NUM_JOINTS):
             q_des[j], qd_des[j], qdd_des[j] = evaluate_trajectory(trajectories, t, j)
 

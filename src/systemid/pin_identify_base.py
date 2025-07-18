@@ -3,13 +3,14 @@ import time, os, sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from config import robot_config
 from pinocchio_friction_regressor import PinocchioAndFrictionRegressorBuilder
-from sklearn.linear_model import Ridge
+from sklearn.linear_model import Ridge, HuberRegressor
 import matplotlib.pyplot as plt
+from utils.cross_validation import cross_validate_base_parameters
 
-# DATA_PATH = "/home/robot/dev/dyn/src/systemid/system_id_data_3joint_final.npz"
-DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
+DATA_PATH = "/home/robot/dev/dyn/src/systemid/system_id_data_3joint_final.npz"
+# DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
 SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
-L2_REGULARIZATION = 1e-3 
+L2_REGULARIZATION = 1e-6
 TIME_STEP_FOR_PLOTTING = 0.02
 SKIP_TIME_SECONDS = 10.0
 
@@ -76,12 +77,20 @@ def compute_base_parameters_svd(Y_stack, tau_stack, tolerance=1e-12):
     
     print(f"Selected {len(base_indices)} base parameters with indices: {base_indices}")
     
-    # Solve for base parameters
+    # Solve for base parameters using Ridge regression
     ridge_model = Ridge(alpha=L2_REGULARIZATION, fit_intercept=False, solver='svd')
     ridge_model.fit(Y_base, tau_stack.ravel())
-    base_params = ridge_model.coef_
+    base_params_ridge = ridge_model.coef_
     
-    return Y_base, base_indices, base_params
+    # Solve for base parameters using Huber regression
+    huber_model = HuberRegressor(fit_intercept=False, alpha=L2_REGULARIZATION)
+    huber_model.fit(Y_base, tau_stack.ravel())
+    base_params_huber = huber_model.coef_
+    
+    # Solve for base parameters using least squares
+    base_params_lstsq = np.linalg.lstsq(Y_base, tau_stack.ravel(), rcond=None)[0]
+    
+    return Y_base, base_indices, base_params_lstsq, base_params_huber, base_params_ridge
 
 def analyze_regressor(Y_stack, name="Regressor"):
     """Computes and prints diagnostics for a regressor matrix."""
@@ -207,11 +216,38 @@ def validate_identification(Y_base, base_params, tau_stack):
     plt.tight_layout()
     plt.show()
 
+def analyze_base_parameters(base_indices, regressor_builder):
+    """Analyze which base parameters are friction vs rigid body"""
+    print(f"Total link parameters: {regressor_builder.total_link_params}")
+    print(f"Total friction parameters: {regressor_builder.total_friction_params}")
+    
+    rigid_body_params = []
+    friction_params = []
+    
+    for i, idx in enumerate(base_indices):
+        if idx < regressor_builder.total_link_params:
+            # Rigid body parameter
+            body_idx = idx // 10
+            param_type = idx % 10
+            param_names = ['m', 'mx', 'my', 'mz', 'Ixx', 'Iyy', 'Izz', 'Ixy', 'Ixz', 'Iyz']
+            rigid_body_params.append(idx)
+            print(f"Base param {i}: Body {body_idx}, {param_names[param_type]} (idx {idx})")
+        else:
+            # Friction parameter
+            friction_idx = idx - regressor_builder.total_link_params
+            joint_idx = friction_idx // 2
+            param_type = friction_idx % 2
+            param_names = ['Viscous', 'Coulomb']
+            friction_params.append(idx)
+            print(f"Base param {i}: Joint {joint_idx}, {param_names[param_type]} friction (idx {idx})")
+    
+    return rigid_body_params, friction_params
+
 def main():
     """
-    Perform system identification using base parameters only.
+    Perform system identification using base parameters with cross-validation.
     """
-    print("--- Starting Base Parameter Identification ---")
+    print("--- Starting Base Parameter Identification with Cross-Validation ---")
 
     # 1. Load the data
     data = np.load(DATA_PATH)
@@ -243,7 +279,7 @@ def main():
     num_params = regressor_builder.total_params
     print(f"Robot has {num_joints} joints, {num_params} total parameters")
 
-    # 3. Build stacked regressor matrix and torque vector
+    # 3. Build stacked regressor matrix and torque vector (FULL DATASET)
     Y_stack = np.zeros((num_samples * num_joints, num_params))
     tau_stack = np.zeros((num_samples * num_joints, 1))
 
@@ -274,8 +310,8 @@ def main():
     # 4. Analyze full regressor matrix
     s_full = analyze_regressor(Y_stack, "Full Parameter Matrix")
 
-    # 5. Compute base parameters
-    Y_base, base_indices, base_params = compute_base_parameters_svd(Y_stack, tau_stack)
+    # 5. Compute base parameters using FULL DATASET
+    Y_base, base_indices, _, _, base_params = compute_base_parameters_svd(Y_stack, tau_stack)
     
     # 6. Analyze base regressor matrix
     s_base = analyze_regressor(Y_base, "Base Parameter Matrix")
@@ -283,29 +319,103 @@ def main():
     # 7. Plot singular values comparison
     plot_singular_values(s_full, s_base, "Singular Values: Full vs Base Parameters")
 
-    # 8. Validate identification
+    # 8. Validate identification on FULL DATASET
     validate_identification(Y_base, base_params, tau_stack)
 
-    print("\n--- Base Parameter Identification Complete ---")
+    # 9. Analyze inertial and friction params on FULL dataset:
+    inertial, fric = analyze_base_parameters(base_indices, regressor_builder)
+
+    print("\n--- Full Dataset Base Parameter Identification Complete ---")
     print(f"Number of base parameters: {len(base_params)}")
     print(f"Base parameter indices: {base_indices}")
     print(f"Base parameter values: {base_params}")
 
-    # 9. Save results
+    # 10. NOW PERFORM CROSS-VALIDATION
+    print("\n" + "="*80)
+    print("STARTING CROSS-VALIDATION")
+    print("="*80)
+    
+    # Import the cross-validation function (you'll need to add this to your imports)
+    # from cross_validation import cross_validate_base_parameters
+    
+    cv_results = cross_validate_base_parameters(
+        DATA_PATH=DATA_PATH,
+        regressor_builder=regressor_builder,
+        base_indices=base_indices,
+        test_size=0.2,
+        random_state=42,
+        TIME_STEP_FOR_PLOTTING=TIME_STEP_FOR_PLOTTING,
+        SKIP_TIME_SECONDS=SKIP_TIME_SECONDS,
+        L2_REGULARIZATION=L2_REGULARIZATION
+    )
+
+    # 11. Compare full dataset vs cross-validation results
+    print("\n" + "="*80)
+    print("COMPARISON: FULL DATASET vs CROSS-VALIDATION")
+    print("="*80)
+    
+    full_dataset_rmse = np.sqrt(np.mean((tau_stack.ravel() - Y_base @ base_params)**2))
+    cv_train_rmse = cv_results['train_metrics']['rmse']
+    cv_test_rmse = cv_results['test_metrics']['rmse']
+    
+    print(f"Full dataset RMSE: {full_dataset_rmse:.6f}")
+    print(f"Cross-validation training RMSE: {cv_train_rmse:.6f}")
+    print(f"Cross-validation test RMSE: {cv_test_rmse:.6f}")
+    
+    # Check if there's significant overfitting
+    if cv_test_rmse > 1.2 * cv_train_rmse:
+        print("⚠ WARNING: Potential overfitting detected!")
+        print("  Consider increasing regularization or collecting more data")
+    else:
+        print("✓ Good generalization performance")
+    
+    # Parameter comparison
+    param_diff = np.abs(base_params - cv_results['base_params'])
+    max_param_diff = np.max(param_diff)
+    mean_param_diff = np.mean(param_diff)
+    
+    print(f"\nParameter differences (full vs CV training):")
+    print(f"  Max difference: {max_param_diff:.6f}")
+    print(f"  Mean difference: {mean_param_diff:.6f}")
+    print(f"  Relative difference: {mean_param_diff/np.mean(np.abs(base_params)):.4f}")
+
+    # 12. Save results including cross-validation
     np.savez(SAVE_PATH, 
              base_params=base_params,
              base_indices=base_indices,
              Y_base=Y_base,
-             condition_number=np.linalg.cond(Y_base))
-    print(f"Base parameters saved to '{SAVE_PATH}'")
-
-    # 10. Create mapping from base parameters back to full parameter space
-    full_params_reconstructed = np.zeros(num_params)
-    full_params_reconstructed[base_indices] = base_params
+             condition_number=np.linalg.cond(Y_base),
+             cv_results=cv_results,
+             full_dataset_rmse=full_dataset_rmse,
+             cv_train_rmse=cv_train_rmse,
+             cv_test_rmse=cv_test_rmse)
     
-    print(f"\nReconstructed full parameter vector (only base parameters are non-zero):")
-    print(f"Shape: {full_params_reconstructed.shape}")
-    print(f"Non-zero elements: {np.sum(full_params_reconstructed != 0)}")
+    print(f"\nAll results saved to '{SAVE_PATH}'")
+    
+    # 13. Final recommendations
+    print("\n" + "="*80)
+    print("RECOMMENDATIONS")
+    print("="*80)
+    
+    if cv_results['generalization']['relative_performance'] < 1.1:
+        print("✓ Excellent model generalization - proceed with confidence")
+    elif cv_results['generalization']['relative_performance'] < 1.3:
+        print("✓ Good model generalization - consider minor regularization tuning")
+    else:
+        print("⚠ Consider:")
+        print("  - Increasing regularization parameter")
+        print("  - Collecting more/diverse training data")
+        print("  - Checking for systematic errors in data collection")
+    
+    if np.linalg.cond(Y_base) > 100:
+        print("⚠ High condition number - parameters may be sensitive to noise")
+    
+    print(f"\nFinal model ready for deployment with {len(base_params)} base parameters")
+
+    # 14. Print which are inertial and which are friction:
+    print("Inertial Params : ", inertial, " Friction params : ", fric)
+    
+    return cv_results
 
 if __name__ == "__main__":
-    main()
+    cv_results = main()

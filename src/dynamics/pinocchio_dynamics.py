@@ -8,7 +8,8 @@ from pinocchio.robot_wrapper import RobotWrapper
 
 class PinocchioRobotDynamics:
     def __init__(self, urdf_path: str):
-        self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
+        # self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
+        self.model = pin.buildModelFromUrdf(urdf_path)
         # self.robot = RobotWrapper.BuildFromURDF(urdf, package_dirs=[], root_joint=None)
         print("\n--- PINOCCHIO MODEL INSPECTION ---")
         print(self.model)
