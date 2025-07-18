@@ -26,7 +26,6 @@ def compute_nonlinear_viscous(qd):
     """
     Quadratic viscous friction: Fv * qd * |qd|
     """
-    # return qd * np.abs(qd)
     return qd**3
 
 class PinocchioAndFrictionRegressorBuilder:
@@ -36,7 +35,7 @@ class PinocchioAndFrictionRegressorBuilder:
     """
     def __init__(self, urdf_path: str):
         # self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
-        self.model = pin.buildModelFromUrdf(urdf_path)
+        self.model = pin.buildModelFromUrdf(urdf_path) # add pin.JointModelFreeFlyer() 
         self.data = self.model.createData()
         self.num_joints = robot_config.NUM_JOINTS
         self.num_moving_bodies = self.model.nbodies - 1
@@ -115,14 +114,6 @@ class PinocchioAndFrictionRegressorBuilder:
             # Coulomb friction column: Fc * sign(qd)
             coulomb_col_idx = i * self.num_friction_params + 1
             Y_friction[i, coulomb_col_idx] = smooth_sign(qd[i])
-            
-            # # nonlinear friction:
-            # nonlinear_col_idx = i * self.num_friction_params + 2
-            # Y_friction[i, nonlinear_col_idx] = compute_nonlinear_viscous(qd[i])
-
-            # # nonlinear friction:
-            # stribeck_col_idx = i * self.num_friction_params + 3
-            # Y_friction[i, stribeck_col_idx] = compute_stribeck_friction(qd[i])
             
         Y_full = np.hstack([Y_rnea, Y_friction])
         # Y_full = Y_rnea

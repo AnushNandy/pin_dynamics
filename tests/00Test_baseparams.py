@@ -4,7 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics 
-from src.systemid.pinocchio_friction_regressor import smooth_sign
+from src.systemid.pinocchio_friction_regressor import smooth_sign, PinocchioAndFrictionRegressorBuilder
 from config import robot_config 
 import pinocchio as pin
 from pinocchio.visualize import MeshcatVisualizer
@@ -12,46 +12,80 @@ from pinocchio.robot_wrapper import RobotWrapper
 from utils.trajectories import generate_chirp_trajectory, generate_aggressive_trajectory, generate_bang_bang_trajectory, generate_step_trajectory
 
 # --- Config ---
-SIM_DURATION = 3
-TIME_STEP = 1. / 240.
+SIM_DURATION = 30
+# TIME_STEP = 1. / 240.
+TIME_STEP = 0.02
 URDF_PATH = robot_config.URDF_PATH
 IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
 NUM_JOINTS = robot_config.NUM_JOINTS
 MAX_TORQUES = robot_config.MAX_TORQUES
-# KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
-# KD = np.array([2 * np.sqrt(k) for k in KP])
 KP = np.array([100.0, 100.0, 200.0])
 KD = np.array([2 * np.sqrt(k) for k in KP])
 
 class PinocchioFeedforwardController:
     def __init__(self, urdf_path: str, identified_params_path: str):
-        print("--- Initializing Pinocchio Feedforward Controller ---")
-        self.model_dynamics = PinocchioRobotDynamics(urdf_path)
-        self.num_joints = self.model_dynamics.num_actuated_joints
-        params = np.load(identified_params_path)
-        base_params = params['base_params']
-        base_indices = params['base_indices']
-        
-        print(f"Loaded {len(base_params)} base parameters")
-        print(f"Base parameter indices: {base_indices}")
-    
-        num_moving_bodies = self.model_dynamics.model.nbodies - 1
-        total_link_params = num_moving_bodies * 10  
-        full_params = np.zeros(total_link_params)
-        for i, idx in enumerate(base_indices):
-            if idx < total_link_params: 
-                full_params[idx] = base_params[i]
-        
-        print(f"Reconstructed full parameter vector with {np.sum(full_params != 0)} non-zero elements")
-        
-        self.model_dynamics.set_parameters_from_vector(full_params)
-        print("-----------------------------------------------------")
+        print("--- Initializing Robust Pinocchio Feedforward Controller ---")
+        try:
+            params_data = np.load(identified_params_path, allow_pickle=True)
+            self.base_params = params_data['base_params']
+            self.base_indices = params_data['base_indices']
+        except FileNotFoundError:
+            print(f"ERROR: Parameter file not found at {identified_params_path}")
+            raise
 
-    def compute_feedforward_torque(self, q, qd, qdd):
-        return self.model_dynamics.compute_rnea(q, qd, qdd)
+        self.num_joints = robot_config.NUM_JOINTS
+        self.regressor_builder = PinocchioAndFrictionRegressorBuilder(urdf_path)
+        self.model_dynamics = PinocchioRobotDynamics(urdf_path)
+        total_params = self.regressor_builder.total_params
+        
+        valid_indices = [idx for idx in self.base_indices if idx < total_params]
+        invalid_indices = [idx for idx in self.base_indices if idx >= total_params]
+        
+        if invalid_indices:
+            print(f"WARNING: Found {len(invalid_indices)} invalid parameter indices: {invalid_indices}")
+            print(f"Total parameters in regressor: {total_params}")
+            print(f"Filtering out invalid indices...")
+            valid_mask = np.array([idx < total_params for idx in self.base_indices])
+            self.base_indices = np.array(self.base_indices)[valid_mask]
+            self.base_params = self.base_params[valid_mask]
+        
+        num_moving_bodies = self.model_dynamics.model.nbodies - 1
+        total_link_params = num_moving_bodies * 10
+        full_params_inertial = np.zeros(total_link_params)
+
+        num_inertial_base_params = 0
+        for i, idx in enumerate(self.base_indices):
+            if idx < total_link_params:
+                full_params_inertial[idx] = self.base_params[i]
+                num_inertial_base_params += 1
+        
+        self.model_dynamics.set_parameters_from_vector(full_params_inertial)
+
+        print(f"Loaded {len(self.base_params)} valid base parameters.")
+        print(f" -> {num_inertial_base_params} inertial parameters")
+        print(f" -> {len(self.base_params) - num_inertial_base_params} friction parameters")
+        print(f"Valid base parameter indices: {self.base_indices}")
+        print(f"Regressor has {total_params} total parameters")
+        print("----------------------------------------------------------")
+
+    def compute_feedforward_torque(self, q: np.ndarray, qd: np.ndarray, qdd: np.ndarray) -> np.ndarray:
+        """
+        Computes the feedforward torque using the base parameter formulation.
+        τ = Y(q, qd, qdd) * P
+        """
+        # 1. Compute the full regressor matrix for the current state.
+        Y_full = self.regressor_builder.compute_regressor_matrix(q, qd, qdd)
+
+        # 2. Select only the columns corresponding to our valid base parameters.
+        Y_base = Y_full[:, self.base_indices]
+
+        # 3. Compute the final torque using the core identification equation.
+        tau_ff = Y_base @ self.base_params
+        
+        return tau_ff
     
 # --- Trajectory Generation Utilities ---
-def generate_quintic_spline(q0, qf, qd0, qdf, qdd0, qddf, T):
+def generate_quintic_spline(q0,     qf, qd0, qdf, qdd0, qddf, T):
     M = np.array([
         [1, 0, 0, 0, 0, 0],
         [0, 1, 0, 0, 0, 0],
@@ -82,6 +116,50 @@ def generate_segmented_trajectory(waypoints, durations):
             traj = generate_quintic_spline(q0[j], qf[j], 0, 0, 0, 0, duration)
             joint_trajectories[j].append((traj, current_time, duration))
         current_time += duration
+    return joint_trajectories
+
+def generate_straight_line_trajectory(waypoints, durations):
+    joint_trajectories = [[] for _ in range(len(waypoints[0]))]
+    current_time = 0.0
+    
+    for seg_idx in range(len(waypoints) - 1):
+        q0 = np.array(waypoints[seg_idx])
+        qf = np.array(waypoints[seg_idx + 1])
+        duration = durations[seg_idx]
+        velocity = (qf - q0) / duration
+        
+        for j in range(len(waypoints[0])):
+            def make_linear_traj(q_start, q_end, vel, dur):
+                def linear_trajectory(t):
+                    t = np.clip(t, 0, dur)
+                    
+                    # Add acceleration at the beginning and end of segments
+                    accel_time = 0.1  # 100ms acceleration/deceleration
+                    if t < accel_time:
+                        # Accelerating from 0 to vel
+                        qdd = vel / accel_time
+                        qd = qdd * t
+                        q = q_start + 0.5 * qdd * t**2
+                    elif t > dur - accel_time:
+                        # Decelerating from vel to 0
+                        t_decel = t - (dur - accel_time)
+                        qdd = -vel / accel_time
+                        q = q_start + vel * (dur - accel_time) + vel * t_decel + 0.5 * qdd * t_decel**2
+                        qd = vel + qdd * t_decel
+                    else:
+                        # Constant velocity
+                        q = q_start + vel * t
+                        qd = vel
+                        qdd = 0.0
+                    
+                    return q, qd, qdd
+                return linear_trajectory
+            
+            traj = make_linear_traj(q0[j], qf[j], velocity[j], duration)
+            joint_trajectories[j].append((traj, current_time, duration))
+        
+        current_time += duration
+    
     return joint_trajectories
 
 def evaluate_trajectory(joint_trajectories, t, j):
@@ -130,18 +208,25 @@ def main():
     elif TRAJECTORY_TYPE == "bang_bang":
         trajectory_func = generate_bang_bang_trajectory(time_vec, NUM_JOINTS)
     elif TRAJECTORY_TYPE == "waypoint":
+        # waypoints = [
+        #     np.zeros(NUM_JOINTS),
+        #     np.deg2rad([40] * NUM_JOINTS),
+        #     np.deg2rad([60] * NUM_JOINTS),
+        #     np.deg2rad([30] * NUM_JOINTS),
+        #     np.deg2rad([-30] * NUM_JOINTS),
+        #     np.deg2rad([-40] * NUM_JOINTS),
+        #     np.zeros(NUM_JOINTS),
+        # ]
         waypoints = [
-            np.zeros(NUM_JOINTS),
-            np.deg2rad([40] * NUM_JOINTS),
-            np.deg2rad([60] * NUM_JOINTS),
-            np.deg2rad([30] * NUM_JOINTS),
-            np.deg2rad([-30] * NUM_JOINTS),
-            np.deg2rad([-40] * NUM_JOINTS),
-            np.zeros(NUM_JOINTS),
+            [0, 0, 0],
+            [0.5, 0.5, 0.5],
+            [-0.5, -0.5, 0.8],
+            [0, 0, 0]
         ]
-        # durations = [3, 3, 3, 3, 3, 3]
-        durations = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
-        trajectories = generate_segmented_trajectory(waypoints, durations)
+        durations = [10, 10, 10]
+        # durations = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5]
+        # trajectories = generate_segmented_trajectory(waypoints, durations)
+        trajectories = generate_straight_line_trajectory(waypoints, durations)
         
         # Wrapper function to match the interface
         def trajectory_func(t):
@@ -153,7 +238,7 @@ def main():
             return q_des, qd_des, qdd_des
 
     print(f"Using {TRAJECTORY_TYPE} trajectory")
-    trajectory_func = generate_aggressive_trajectory(time_vec, NUM_JOINTS)
+    # trajectory_func = generate_aggressive_trajectory(time_vec, NUM_JOINTS)
 
     # --- 3. Simulation Loop ---
     # Prepare lists to log data for plotting

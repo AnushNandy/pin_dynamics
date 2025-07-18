@@ -198,7 +198,6 @@ class PinocchioRobotDynamics:
         
         C_full = self.data.C
         
-        # actuated_slice = slice(6, 6 + self.num_actuated_joints)
         actuated_slice = slice(v_start, v_start+ self.num_actuated_joints)
         return C_full[actuated_slice, actuated_slice]
 

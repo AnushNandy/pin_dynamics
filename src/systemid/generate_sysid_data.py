@@ -16,14 +16,14 @@ TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
 MAX_TORQUES = robot_config.MAX_TORQUES
 
-# joint_limits = [
-#     (-2.5, 2.5), (-2.3, 2.3), (-2.2, 2.2),
-#     (-2.5, 2.5),(-2.5, 2.5), (-2.5, 2.5),
-#     (-1, 1)
-# ]
+joint_limits = [
+    (-2.5, 2.5), (-2.3, 2.3), (-2.2, 2.2),
+    (-2.5, 2.5),(-2.5, 2.5), (-2.5, 2.5),
+    (-1, 1)
+]
 
-# low_bounds = np.array([limit[0] for limit in joint_limits])
-# high_bounds = np.array([limit[1] for limit in joint_limits])
+low_bounds = np.array([limit[0] for limit in joint_limits])
+high_bounds = np.array([limit[1] for limit in joint_limits])
 
 # --- PD Controller Gains ---
 # KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
@@ -44,26 +44,7 @@ def setup_meshcat_visualization(urdf_path: str):
 
 def generate_fourier_series_trajectory(t, num_harmonics = 8, base_freq = 0.15): # 5 , 0.5 
     np.random.seed(42)
-
-    # joint_amplitudes = np.array([
-    #         0.7,   # Joint 1
-    #         0.7,   # Joint 2
-    #         0.3,   # Joint 3
-    #         0.3,   # Joint 4
-    #         0.3,  # Joint 5
-    #         0.3,  # Joint 6
-    #         0.08   # Joint 7
-    #     ])
     
-    # phi = np.array([
-    #     0,        # Joint 1
-    #     0.2*np.pi,# Joint 2
-    #     0.4*np.pi,# Joint 3
-    #     0.6*np.pi,# Joint 4
-    #     0.8*np.pi,# Joint 5
-    #     np.pi,# Joint 6
-    #     np.pi# Joint 7
-    # ])
     joint_amplitudes = np.array([
             1.2,   # Joint 2
             1.8,   # Joint 3
