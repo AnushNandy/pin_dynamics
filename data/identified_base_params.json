@@ -1,0 +1,72 @@
+{
+    "metadata": {
+        "timestamp": "2025-07-23T16:16:46.492168",
+        "description": "Robot base parameters identified through system identification",
+        "method": "SVD-based base parameter identification with cross-validation",
+        "regularization": 1e-06,
+        "data_source": "/home/robot/dev/dyn/src/systemid/system_id_data_3joint_final.npz"
+    },
+    "base_parameters": {
+        "values": [
+            -0.03220587745838506,
+            0.5002760865078323,
+            -0.71869470572447,
+            0.11588512983374505,
+            0.9146535407673597,
+            0.33262417519323645,
+            0.14851718233147243,
+            5.8480434305744895,
+            -0.2996272755871602,
+            -0.3873112297791665,
+            -0.6285156458114199,
+            9.675868815045451,
+            5.371664333996784,
+            -0.3907111135084367,
+            0.35924982250878446,
+            0.2224135385864318,
+            29.134504790402264,
+            1.6062910941534674,
+            4.608520729549049,
+            -0.9946965421472416,
+            9.954293562093934
+        ],
+        "indices": [
+            23,
+            22,
+            21,
+            12,
+            9,
+            27,
+            25,
+            30,
+            28,
+            18,
+            29,
+            33,
+            35,
+            26,
+            15,
+            17,
+            31,
+            14,
+            32,
+            19,
+            34
+        ],
+        "count": 21,
+        "description": "Minimal set of identifiable dynamic parameters"
+    },
+    "performance_metrics": {
+        "full_dataset_rmse": 0,
+        "cross_validation": {
+            "train_rmse": 5.761235288067612,
+            "test_rmse": 5.673007110882195,
+            "generalization_ratio": 0.9846858923869763
+        }
+    },
+    "parameter_analysis": {
+        "rigid_body_params": [],
+        "friction_params": [],
+        "condition_number": 0
+    }
+}

@@ -6,10 +6,12 @@ from pinocchio_friction_regressor import PinocchioAndFrictionRegressorBuilder
 from sklearn.linear_model import Ridge, HuberRegressor
 import matplotlib.pyplot as plt
 from utils.cross_validation import cross_validate_base_parameters
+import json
+from datetime import datetime
 
-DATA_PATH = "/home/robot/dev/dyn/src/systemid/system_id_data_3joint_final.npz"
-# DATA_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
-SAVE_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
+DATA_PATH = "/home/robot/dev/dyn/data/system_id_data_3joint_final.npz"
+SAVE_PATH = "/home/robot/dev/dyn/data/identified_base_params.npz"
+SAVE_PATH_JSON = "/home/robot/dev/dyn/data/identified_base_params.json"
 L2_REGULARIZATION = 1e-6
 TIME_STEP_FOR_PLOTTING = 0.02
 SKIP_TIME_SECONDS = 10.0
@@ -243,6 +245,178 @@ def analyze_base_parameters(base_indices, regressor_builder):
     
     return rigid_body_params, friction_params
 
+def save_parameters_to_json(base_params, base_indices, cv_results, save_path_json):
+    """
+    Save identified parameters to a JSON file for easy human readability and integration.
+    
+    Args:
+        base_params: Identified base parameters array
+        base_indices: Indices of base parameters
+        cv_results: Cross-validation results dictionary
+        save_path_json: Path to save JSON file
+    """
+    
+    # Convert numpy arrays to lists for JSON serialization
+    def convert_numpy_to_json(obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, dict):
+            return {key: convert_numpy_to_json(value) for key, value in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_numpy_to_json(item) for item in obj]
+        else:
+            return obj
+    
+    # Create comprehensive parameter data structure
+    parameter_data = {
+        "metadata": {
+            "timestamp": datetime.now().isoformat(),
+            "description": "Robot base parameters identified through system identification",
+            "method": "SVD-based base parameter identification with cross-validation",
+            "regularization": float(L2_REGULARIZATION),
+            "data_source": DATA_PATH
+        },
+        
+        "base_parameters": {
+            "values": convert_numpy_to_json(base_params),
+            "indices": convert_numpy_to_json(base_indices),
+            "count": len(base_params),
+            "description": "Minimal set of identifiable dynamic parameters"
+        },
+        
+        "performance_metrics": {
+            "full_dataset_rmse": convert_numpy_to_json(cv_results.get('full_dataset_rmse', 0)),
+            "cross_validation": {
+                "train_rmse": convert_numpy_to_json(cv_results['train_metrics']['rmse']),
+                "test_rmse": convert_numpy_to_json(cv_results['test_metrics']['rmse']),
+                "generalization_ratio": convert_numpy_to_json(cv_results['generalization']['relative_performance'])
+            }
+        },
+        
+        "parameter_analysis": {
+            "rigid_body_params": convert_numpy_to_json(cv_results.get('rigid_body_params', [])),
+            "friction_params": convert_numpy_to_json(cv_results.get('friction_params', [])),
+            "condition_number": convert_numpy_to_json(cv_results.get('condition_number', 0))
+        }
+    }
+    
+    # Save to JSON file
+    with open(save_path_json, 'w') as f:
+        json.dump(parameter_data, f, indent=4, separators=(',', ': '))
+    
+    print(f"Parameters saved to JSON: '{save_path_json}'")
+    return parameter_data
+
+def load_parameters_from_json(json_path):
+    """
+    Load identified parameters from JSON file.
+    
+    Args:
+        json_path: Path to JSON file
+        
+    Returns:
+        dict: Parameter data with numpy arrays converted back
+    """
+    with open(json_path, 'r') as f:
+        data = json.load(f)
+    
+    # Convert lists back to numpy arrays where appropriate
+    data['base_parameters']['values'] = np.array(data['base_parameters']['values'])
+    data['base_parameters']['indices'] = np.array(data['base_parameters']['indices'])
+    
+    if 'parameter_analysis' in data:
+        if 'rigid_body_params' in data['parameter_analysis']:
+            data['parameter_analysis']['rigid_body_params'] = np.array(data['parameter_analysis']['rigid_body_params'])
+        if 'friction_params' in data['parameter_analysis']:
+            data['parameter_analysis']['friction_params'] = np.array(data['parameter_analysis']['friction_params'])
+    
+    print(f"Parameters loaded from JSON: '{json_path}'")
+    return data
+
+def load_parameters_from_npz(npz_path):
+    """
+    Load parameters from NPZ file and extract key data.
+    
+    Args:
+        npz_path: Path to NPZ file
+        
+    Returns:
+        dict: Extracted parameter data
+    """
+    data = np.load(npz_path, allow_pickle=True)
+    
+    extracted_data = {
+        'base_parameters': {
+            'values': data['base_params'],
+            'indices': data['base_indices'],
+            'count': len(data['base_params'])
+        },
+        'Y_base': data['Y_base'],
+        'condition_number': float(data['condition_number']),
+        'cv_results': data['cv_results'].item() if 'cv_results' in data else None,
+        'performance_metrics': {
+            'full_dataset_rmse': float(data['full_dataset_rmse']) if 'full_dataset_rmse' in data else None,
+            'cv_train_rmse': float(data['cv_train_rmse']) if 'cv_train_rmse' in data else None,
+            'cv_test_rmse': float(data['cv_test_rmse']) if 'cv_test_rmse' in data else None
+        }
+    }
+    
+    print(f"Parameters loaded from NPZ: '{npz_path}'")
+    return extracted_data
+
+def convert_npz_to_json(npz_path, json_path):
+    """
+    Convert an existing NPZ file to JSON format.
+    
+    Args:
+        npz_path: Path to input NPZ file
+        json_path: Path to output JSON file
+    """
+    # Load from NPZ
+    npz_data = load_parameters_from_npz(npz_path)
+    
+    # Create JSON structure
+    json_data = {
+        "metadata": {
+            "timestamp": datetime.now().isoformat(),
+            "description": "Robot base parameters converted from NPZ format",
+            "source_file": npz_path
+        },
+        
+        "base_parameters": {
+            "values": npz_data['base_parameters']['values'].tolist(),
+            "indices": npz_data['base_parameters']['indices'].tolist(),
+            "count": npz_data['base_parameters']['count']
+        },
+        
+        "performance_metrics": npz_data['performance_metrics'],
+        
+        "parameter_analysis": {
+            "condition_number": npz_data['condition_number']
+        }
+    }
+    
+    # Add CV results if available
+    if npz_data['cv_results'] is not None:
+        cv_results = npz_data['cv_results']
+        json_data["performance_metrics"]["cross_validation"] = {
+            "train_rmse": float(cv_results['train_metrics']['rmse']),
+            "test_rmse": float(cv_results['test_metrics']['rmse']),
+            "generalization_ratio": float(cv_results['generalization']['relative_performance'])
+        }
+    
+    # Save to JSON
+    with open(json_path, 'w') as f:
+        json.dump(json_data, f, indent=4, separators=(',', ': '))
+    
+    print(f"Converted NPZ to JSON: '{npz_path}' -> '{json_path}'")
+    return json_data
+
+
 def main():
     """
     Perform system identification using base parameters with cross-validation.
@@ -391,6 +565,8 @@ def main():
              cv_test_rmse=cv_test_rmse)
     
     print(f"\nAll results saved to '{SAVE_PATH}'")
+
+    save_parameters_to_json(base_params, base_indices, cv_results, SAVE_PATH_JSON)
     
     # 13. Final recommendations
     print("\n" + "="*80)

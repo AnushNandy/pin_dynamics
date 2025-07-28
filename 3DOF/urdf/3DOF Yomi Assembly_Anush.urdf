@@ -284,7 +284,7 @@
       effort="10000"
       velocity="2.5" />
   </joint>
-  <link
+  <!-- <link
     name="End_effector">
     <inertial>
       <origin
@@ -300,7 +300,7 @@
         iyz="0.000000224092863112705"
         izz="0.000125157281270332" />
     </inertial>
-    <!-- <visual>
+    <visual>
       <origin
         xyz="0 0 0"
         rpy="0 0 0" />
@@ -322,9 +322,9 @@
         <mesh
           filename="/home/robot/dev/dyn/3DOF/meshes/End_effector.STL" />
       </geometry>
-    </collision> -->
-  </link>
-  <joint
+    </collision>
+  </link> -->
+  <!-- <joint
     name="Joint4"
     type="revolute">
     <origin
@@ -336,10 +336,10 @@
       link="End_effector" />
     <axis
       xyz="0 0 -1" />
-    <limit
-      lower="0"
-      upper="0"
-      effort="0"
-      velocity="0" />
-  </joint>
+      <limit
+      lower="-6.28"
+      upper="6.28"
+      effort="10000"
+      velocity="2.5" />
+  </joint> -->
 </robot>

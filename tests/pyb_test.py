@@ -79,3 +79,4 @@ if __name__ == '__main__':
     
     # 3. Run the main simulation loop
     run_simulation(robot, sliders)
+

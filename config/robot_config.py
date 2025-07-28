@@ -11,7 +11,7 @@ LINK_NAMES_IN_KDL_ORDER = [
     "Link2",
     "Link3",
     "Link4",
-    "End_effector"
+    # "End_effector"
 ]
 
 ACTUATED_JOINT_NAMES = [
@@ -20,4 +20,4 @@ ACTUATED_JOINT_NAMES = [
 
 NUM_JOINTS = len(ACTUATED_JOINT_NAMES)
 
-END_EFFECTOR_FRAME_NAME = "End_effector"
+END_EFFECTOR_FRAME_NAME = "Link4" #End_effector

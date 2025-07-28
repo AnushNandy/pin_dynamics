@@ -10,7 +10,7 @@ from config import robot_config
 from src.dynamics.pinocchio_dynamics import PinocchioRobotDynamics
 
 URDF_PATH = robot_config.URDF_PATH
-SAVE_PATH = "/home/robot/dev/dyn/src/systemid/sysid_data_pybullet.npz"
+SAVE_PATH = "/home/robot/dev/dyn/data/sysid_data_pybullet.npz"
 SIM_DURATION = 500.0 #150 500
 TIME_STEP = 1. / 240.
 NUM_JOINTS = robot_config.NUM_JOINTS
@@ -26,8 +26,6 @@ low_bounds = np.array([limit[0] for limit in joint_limits])
 high_bounds = np.array([limit[1] for limit in joint_limits])
 
 # --- PD Controller Gains ---
-# KP = np.array([100.0, 100.0, 200.0, 500.0, 150.0, 150.0, 0.7])
-# KD = np.array([2 * np.sqrt(k) for k in KP])
 KP = np.array([100.0, 100.0, 200.0])
 KD = np.array([2 * np.sqrt(k) for k in KP])
 

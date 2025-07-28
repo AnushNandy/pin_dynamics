@@ -19,7 +19,6 @@ class PinocchioRobotDynamics:
         print("------------------------------------\n")
 
         self.data = self.model.createData()
-        
         self.nq = self.model.nq
         self.nv = self.model.nv
 

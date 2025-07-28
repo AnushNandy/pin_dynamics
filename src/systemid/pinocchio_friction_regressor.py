@@ -34,7 +34,6 @@ class PinocchioAndFrictionRegressorBuilder:
     and friction parameters.
     """
     def __init__(self, urdf_path: str):
-        # self.model = pin.buildModelFromUrdf(urdf_path, pin.JointModelFreeFlyer())
         self.model = pin.buildModelFromUrdf(urdf_path) # add pin.JointModelFreeFlyer() 
         self.data = self.model.createData()
         self.num_joints = robot_config.NUM_JOINTS

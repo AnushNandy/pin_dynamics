@@ -16,7 +16,7 @@ SIM_DURATION = 30
 # TIME_STEP = 1. / 240.
 TIME_STEP = 0.02
 URDF_PATH = robot_config.URDF_PATH
-IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/src/systemid/identified_base_params.npz"
+IDENTIFIED_PARAMS_PATH = "/home/robot/dev/dyn/data/identified_base_params.npz"
 NUM_JOINTS = robot_config.NUM_JOINTS
 MAX_TORQUES = robot_config.MAX_TORQUES
 KP = np.array([100.0, 100.0, 200.0])
@@ -32,12 +32,10 @@ class PinocchioFeedforwardController:
         except FileNotFoundError:
             print(f"ERROR: Parameter file not found at {identified_params_path}")
             raise
-
         self.num_joints = robot_config.NUM_JOINTS
         self.regressor_builder = PinocchioAndFrictionRegressorBuilder(urdf_path)
         self.model_dynamics = PinocchioRobotDynamics(urdf_path)
         total_params = self.regressor_builder.total_params
-        
         valid_indices = [idx for idx in self.base_indices if idx < total_params]
         invalid_indices = [idx for idx in self.base_indices if idx >= total_params]
         
@@ -219,8 +217,8 @@ def main():
         # ]
         waypoints = [
             [0, 0, 0],
-            [0.5, 0.5, 0.5],
-            [-0.5, -0.5, 0.8],
+            [0, 0.0, 0.5],
+            [-0.0, -0.0, -0.5],
             [0, 0, 0]
         ]
         durations = [10, 10, 10]
