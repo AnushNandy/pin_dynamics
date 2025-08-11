@@ -9,7 +9,7 @@ from utils.cross_validation import cross_validate_base_parameters
 import json
 from datetime import datetime
 
-DATA_PATH = "/home/robot/dev/dyn/data/system_id_data_3joint_final.npz"
+DATA_PATH = "/home/robot/dev/dyn/data/system_id_data_joint_final.npz"
 SAVE_PATH = "/home/robot/dev/dyn/data/identified_base_params.npz"
 SAVE_PATH_JSON = "/home/robot/dev/dyn/data/identified_base_params.json"
 L2_REGULARIZATION = 1e-6

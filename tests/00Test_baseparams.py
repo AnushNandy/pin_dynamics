@@ -76,7 +76,7 @@ class PinocchioFeedforwardController:
 
         # 2. Select only the columns corresponding to our valid base parameters.
         Y_base = Y_full[:, self.base_indices]
-
+        
         # 3. Compute the final torque using the core identification equation.
         tau_ff = Y_base @ self.base_params
         
